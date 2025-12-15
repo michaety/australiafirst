@@ -40,7 +40,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     sql += ' ORDER BY d.date DESC LIMIT 100';
 
     const stmt = db.prepare(sql);
-    const bound = bindings.reduce((s, b) => s.bind(b), stmt);
+    const bound = bindings.reduce((statement, b) => statement.bind(b), stmt);
     const result = await bound.all();
 
     return jsonResponse({

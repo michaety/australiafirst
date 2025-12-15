@@ -55,7 +55,7 @@ export const GET: APIRoute = async ({ locals, params, url }) => {
     bindings.push(limit);
 
     const stmt = db.prepare(sql);
-    const bound = bindings.reduce((s, b) => s.bind(b), stmt);
+    const bound = bindings.reduce((statement, b) => statement.bind(b), stmt);
     const result = await bound.all();
 
     const items = (result.results as any[]).map((row) => ({

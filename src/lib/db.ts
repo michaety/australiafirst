@@ -65,7 +65,7 @@ export async function getPoliticians(
   sql += ' ORDER BY p.name';
 
   const stmt = db.prepare(sql);
-  const bound = bindings.reduce((s, b) => s.bind(b), stmt);
+  const bound = bindings.reduce((statement, b) => statement.bind(b), stmt);
   const result = await bound.all();
   return result.results;
 }
