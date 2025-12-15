@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { jsonResponse } from '../../../lib/api';
 
+export const prerender = false;
+
 export const GET: APIRoute = async ({ locals, url }) => {
   const db = locals.runtime.env.DB;
   const mapped = url.searchParams.get('mapped');

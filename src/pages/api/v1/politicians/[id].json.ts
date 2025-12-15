@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import { jsonResponse, withCache } from '../../../../lib/api';
 import { getPoliticianById, getLatestScoreRun } from '../../../../lib/db';
 
+export const prerender = false;
+
 export const GET: APIRoute = async ({ locals, params }) => {
   const db = locals.runtime.env.DB;
   const kv = locals.runtime.env.KV;

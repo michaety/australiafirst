@@ -4,6 +4,8 @@ import { OpenAustraliaClient } from '../../../../lib/upstream/openaus';
 import { storeRawDocument } from '../../../../lib/audit';
 import { randomUUID } from 'crypto';
 
+export const prerender = false;
+
 export const POST: APIRoute = async ({ locals }) => {
   const db = locals.runtime.env.DB;
   const r2 = locals.runtime.env.R2;

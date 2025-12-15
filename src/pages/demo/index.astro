@@ -1,0 +1,74 @@
+---
+const title = 'Policy Alignment Index - Demo';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <link rel="stylesheet" href="/demo/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Policy Alignment Index</h1>
+        <p class="subtitle">Evidence-based politician profiles</p>
+      </header>
+
+      <main>
+        <section class="filters">
+          <h2>Filter Politicians</h2>
+          <div class="filter-controls">
+            <select id="chamber-filter">
+              <option value="">All Chambers</option>
+              <option value="house">House of Representatives</option>
+              <option value="senate">Senate</option>
+            </select>
+            <input
+              type="text"
+              id="search-filter"
+              placeholder="Search by name..."
+            />
+          </div>
+        </section>
+
+        <section class="categories">
+          <h2>Categories</h2>
+          <div id="categories-list" class="loading">Loading categories...</div>
+        </section>
+
+        <section class="politicians">
+          <h2>Politicians</h2>
+          <div id="politicians-list" class="loading">
+            Loading politicians...
+          </div>
+        </section>
+
+        <section class="detail" id="politician-detail" style="display: none;">
+          <button id="back-button" class="btn-secondary">← Back to List</button>
+          <div id="detail-content"></div>
+        </section>
+      </main>
+
+      <footer>
+        <p>
+          <strong>Provenance:</strong> Data from OpenAustralia &
+          TheyVoteForYou
+        </p>
+        <p>
+          <strong>Framework:</strong> <span id="framework-version"
+            >Loading...</span
+          >
+        </p>
+        <p class="disclaimer">
+          This is a demonstration of evidence-based policy scoring. All scores
+          are derived from public voting records.
+        </p>
+      </footer>
+    </div>
+
+    <script is:inline src="/demo/app.js"></script>
+  </body>
+</html>

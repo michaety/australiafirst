@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { jsonResponse } from '../../../../lib/api';
 
+export const prerender = false;
+
 // Seed default categories
 const DEFAULT_CATEGORIES = [
   {

@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import { jsonResponse, withCache } from '../../../lib/api';
 import { getCategories } from '../../../lib/db';
 
+export const prerender = false;
+
 export const GET: APIRoute = async ({ locals }) => {
   const db = locals.runtime.env.DB;
   const kv = locals.runtime.env.KV;
