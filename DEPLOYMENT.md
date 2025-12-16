@@ -100,7 +100,7 @@ curl -X POST https://australiafirst.<your-subdomain>.workers.dev/api/internal/et
 
 The `wrangler.json` already includes cron schedules:
 - `0 2 * * *` - Daily at 2 AM (roster + divisions sync)
-- `0 3 * * 0` - Weekly on Sunday at 3 AM (optional enrichment)
+- `0 3 * * SUN` - Weekly on Sunday at 3 AM (optional enrichment)
 
 To activate cron triggers, ensure you have a paid Workers plan.
 
