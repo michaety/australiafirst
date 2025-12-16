@@ -50,9 +50,9 @@ async function handleScheduled(event, env, ctx) {
     if (endpoint) {
       console.log(`[CRON] Running ${description}: ${endpoint}`);
       
-      // Create a mock request to trigger the internal endpoint
-      // Use localhost since we're making an internal call
-      const request = new Request(`http://localhost${endpoint}`, {
+      // Create a request to the internal endpoint
+      // Use a dummy hostname - the worker will route based on pathname
+      const request = new Request(`https://dummy.internal${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,12 +63,13 @@ async function handleScheduled(event, env, ctx) {
       // Call the Astro worker's fetch handler
       const response = await astroWorker.fetch(request, env, ctx);
       
-      try {
+      // Response body can only be consumed once, so choose one method
+      if (response.headers.get('content-type')?.includes('application/json')) {
         const result = await response.json();
         console.log(`[CRON] ${description} completed:`, result);
-      } catch (e) {
+      } else {
         const text = await response.text();
-        console.log(`[CRON] ${description} response:`, text);
+        console.log(`[CRON] ${description} completed:`, text);
       }
     } else {
       console.log(`[CRON] No handler configured for schedule: ${cron}`);
@@ -86,6 +87,6 @@ export default {
   },
   
   async scheduled(event, env, ctx) {
-    return handleScheduled(event, env, ctx);
+    await handleScheduled(event, env, ctx);
   },
 };

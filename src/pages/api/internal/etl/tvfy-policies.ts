@@ -19,6 +19,9 @@ export const POST: APIRoute = async ({ locals }) => {
     // Store raw data in R2 for audit
     await storeRawDocument(db, r2, 'tvfy-policies', policiesData);
 
+    // Count policies if it's an array
+    const count = Array.isArray(policiesData) ? policiesData.length : 0;
+
     // Mark as successfully parsed
     // Note: We don't import these into division_mappings automatically
     // They're stored for human review only
@@ -26,7 +29,7 @@ export const POST: APIRoute = async ({ locals }) => {
     return jsonResponse({
       success: true,
       message: 'TVFY policies fetched and stored for review',
-      count: Array.isArray(policiesData) ? policiesData.length : 0,
+      count,
     });
   } catch (e) {
     console.error('Error in TVFY policies ETL:', e);
