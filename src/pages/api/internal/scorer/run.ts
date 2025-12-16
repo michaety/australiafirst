@@ -56,7 +56,7 @@ export const POST: APIRoute = async ({ locals }) => {
           .bind(category.id)
           .all();
 
-        const mappings = mappingsResult.results as DivisionMapping[];
+        const mappings = mappingsResult.results as unknown as DivisionMapping[];
 
         if (mappings.length === 0) continue;
 
@@ -73,7 +73,7 @@ export const POST: APIRoute = async ({ locals }) => {
           .bind(politician.id, ...divisionIds)
           .all();
 
-        const votes = votesResult.results as Vote[];
+        const votes = votesResult.results as unknown as Vote[];
 
         // Calculate score
         const score = calculateCategoryScore(votes, mappings);
