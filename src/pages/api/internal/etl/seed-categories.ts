@@ -43,7 +43,14 @@ const DEFAULT_CATEGORIES = [
 ];
 
 export const POST: APIRoute = async ({ locals }) => {
-  const db = locals.runtime.env.DB;
+  // Access runtime environment bindings
+  const env = locals.runtime?.env;
+  if (!env) {
+    console.error('Runtime environment not available');
+    return jsonResponse({ error: 'Internal server error' }, { status: 500 });
+  }
+
+  const db = env.DB;
 
   try {
     for (const category of DEFAULT_CATEGORIES) {

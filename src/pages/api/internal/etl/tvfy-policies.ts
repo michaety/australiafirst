@@ -6,9 +6,16 @@ import { storeRawDocument } from '../../../../lib/audit';
 export const prerender = false;
 
 export const POST: APIRoute = async ({ locals }) => {
-  const db = locals.runtime.env.DB;
-  const r2 = locals.runtime.env.R2;
-  const apiKey = locals.runtime.env.THEYVOTEFORYOU_API_KEY;
+  // Access runtime environment bindings
+  const env = locals.runtime?.env;
+  if (!env) {
+    console.error('Runtime environment not available');
+    return jsonResponse({ error: 'Internal server error' }, { status: 500 });
+  }
+
+  const db = env.DB;
+  const r2 = env.R2;
+  const apiKey = env.THEYVOTEFORYOU_API_KEY;
 
   try {
     const client = new TVFYClient({ apiKey });

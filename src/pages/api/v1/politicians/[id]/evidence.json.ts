@@ -5,7 +5,14 @@ import { getLatestScoreRun, getCategoryBySlug } from '../../../../../lib/db';
 export const prerender = false;
 
 export const GET: APIRoute = async ({ locals, params, url }) => {
-  const db = locals.runtime.env.DB;
+  // Access runtime environment bindings
+  const env = locals.runtime?.env;
+  if (!env) {
+    console.error('Runtime environment not available');
+    return jsonResponse({ error: 'Internal server error' }, { status: 500 });
+  }
+
+  const db = env.DB;
   const { id } = params;
   const categorySlug = url.searchParams.get('category');
   const limit = parseInt(url.searchParams.get('limit') || '100', 10);

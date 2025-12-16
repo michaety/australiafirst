@@ -7,9 +7,16 @@ import { randomUUID } from 'crypto';
 export const prerender = false;
 
 export const POST: APIRoute = async ({ locals }) => {
-  const db = locals.runtime.env.DB;
-  const r2 = locals.runtime.env.R2;
-  const apiKey = locals.runtime.env.OPENAUSTRALIA_API_KEY;
+  // Access runtime environment bindings
+  const env = locals.runtime?.env;
+  if (!env) {
+    console.error('Runtime environment not available');
+    return jsonResponse({ error: 'Internal server error' }, { status: 500 });
+  }
+
+  const db = env.DB;
+  const r2 = env.R2;
+  const apiKey = env.OPENAUSTRALIA_API_KEY;
 
   try {
     const client = new OpenAustraliaClient({ apiKey });

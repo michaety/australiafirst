@@ -5,8 +5,15 @@ import { getCategories } from '../../../lib/db';
 export const prerender = false;
 
 export const GET: APIRoute = async ({ locals }) => {
-  const db = locals.runtime.env.DB;
-  const kv = locals.runtime.env.KV;
+  // Access runtime environment bindings
+  const env = locals.runtime?.env;
+  if (!env) {
+    console.error('Runtime environment not available');
+    return jsonResponse({ error: 'Internal server error' }, { status: 500 });
+  }
+
+  const db = env.DB;
+  const kv = env.KV;
 
   try {
     const categories = await withCache(

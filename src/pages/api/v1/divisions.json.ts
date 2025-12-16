@@ -4,7 +4,14 @@ import { jsonResponse } from '../../../lib/api';
 export const prerender = false;
 
 export const GET: APIRoute = async ({ locals, url }) => {
-  const db = locals.runtime.env.DB;
+  // Access runtime environment bindings
+  const env = locals.runtime?.env;
+  if (!env) {
+    console.error('Runtime environment not available');
+    return jsonResponse({ error: 'Internal server error' }, { status: 500 });
+  }
+
+  const db = env.DB;
   const mapped = url.searchParams.get('mapped');
   const since = url.searchParams.get('since');
   const chamber = url.searchParams.get('chamber');
