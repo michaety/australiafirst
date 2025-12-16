@@ -6,6 +6,9 @@
 // This will be the Astro-generated worker
 import astroWorker from './_worker.js/index.js';
 
+// Internal hostname for scheduled requests
+const SCHEDULED_INTERNAL_HOST = 'scheduled.internal';
+
 /**
  * Scheduled event handler for Cloudflare Cron Triggers
  * Routes cron jobs to appropriate ETL and scoring endpoints
@@ -51,8 +54,8 @@ async function handleScheduled(event, env, ctx) {
       console.log(`[CRON] Running ${description}: ${endpoint}`);
       
       // Create a request to the internal endpoint
-      // Use a dummy hostname - the worker will route based on pathname
-      const request = new Request(`https://dummy.internal${endpoint}`, {
+      // Use a descriptive internal hostname - the worker routes based on pathname
+      const request = new Request(`https://${SCHEDULED_INTERNAL_HOST}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
