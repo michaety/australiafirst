@@ -6,6 +6,8 @@ interface Env {
   KV: KVNamespace;
   // R2 bucket binding
   R2: R2Bucket;
+  // KV namespace for Astro sessions (required by @astrojs/cloudflare)
+  SESSION: KVNamespace;
   // Secrets (do not commit)
   OPENAUSTRALIA_API_KEY: string;
   THEYVOTEFORYOU_API_KEY?: string;
