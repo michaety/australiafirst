@@ -22,6 +22,10 @@
 		{
 			"binding": "KV",
 			"id": "f8163c67a46d4e41a0a58b114180966a"
+		},
+		{
+			"binding": "SESSION",
+			"id": "f8163c67a46d4e41a0a58b114180966a"
 		}
 	],
 	"r2_buckets": [
