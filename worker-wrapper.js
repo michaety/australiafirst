@@ -3,29 +3,15 @@
  * This wraps the Astro-generated worker and adds cron trigger handling
  */
 
-// This will be the Astro-generated worker
 import astroWorker from './_worker.js/index.js';
 
-// Internal hostname for scheduled requests
 const SCHEDULED_INTERNAL_HOST = 'scheduled.internal';
 
-/**
- * Scheduled event handler for Cloudflare Cron Triggers
- * Routes cron jobs to appropriate ETL and scoring endpoints
- * 
- * Cron schedules (defined in wrangler.json):
- * - 0 2 * * *       - Daily at 2:00 AM: Roster ETL
- * - 30 2 * * *      - Daily at 2:30 AM: Divisions ETL  
- * - 0 4 * * *       - Daily at 4:00 AM: Scoring Job
- * - 0 3 * * SUN     - Weekly on Sunday at 3:00 AM: TVFY Policies ETL
- */
 async function handleScheduled(event, env, ctx) {
   const { cron } = event;
-  
   console.log(`[CRON] Triggered: ${cron}`);
 
   try {
-    // Route based on cron schedule
     let endpoint = null;
     let description = '';
 
@@ -34,27 +20,19 @@ async function handleScheduled(event, env, ctx) {
       endpoint = '/api/internal/etl/roster';
       description = 'Roster ETL';
     }
-    // Daily at 2:30 AM - Divisions ETL
-    else if (cron === '30 2 * * *') {
-      endpoint = '/api/internal/etl/divisions';
-      description = 'Divisions ETL';
+    // Daily at 3:00 AM - Photo fetch
+    else if (cron === '0 3 * * *') {
+      endpoint = '/api/internal/photos/fetch';
+      description = 'Photo Fetch';
     }
-    // Daily at 4:00 AM - Scoring job
+    // Daily at 4:00 AM - Reserved for future use
     else if (cron === '0 4 * * *') {
-      endpoint = '/api/internal/scorer/run';
-      description = 'Scoring Job';
-    }
-    // Weekly on Sunday at 3:00 AM - TVFY policies
-    else if (cron === '0 3 * * SUN') {
-      endpoint = '/api/internal/etl/tvfy-policies';
-      description = 'TVFY Policies ETL';
+      console.log('[CRON] 4AM slot reserved for future use');
+      return;
     }
 
     if (endpoint) {
       console.log(`[CRON] Running ${description}: ${endpoint}`);
-      
-      // Create a request to the internal endpoint
-      // Use a descriptive internal hostname - the worker routes based on pathname
       const request = new Request(`https://${SCHEDULED_INTERNAL_HOST}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -62,11 +40,7 @@ async function handleScheduled(event, env, ctx) {
           'X-Cron-Trigger': 'true',
         },
       });
-
-      // Call the Astro worker's fetch handler
       const response = await astroWorker.fetch(request, env, ctx);
-      
-      // Response body can only be consumed once, so choose one method
       if (response.headers.get('content-type')?.includes('application/json')) {
         const result = await response.json();
         console.log(`[CRON] ${description} completed:`, result);
@@ -79,16 +53,13 @@ async function handleScheduled(event, env, ctx) {
     }
   } catch (error) {
     console.error(`[CRON] Error processing scheduled event:`, error);
-    // Don't throw - we don't want cron failures to prevent future runs
   }
 }
 
-// Export the worker with both fetch and scheduled handlers
 export default {
   async fetch(request, env, ctx) {
     return astroWorker.fetch(request, env, ctx);
   },
-  
   async scheduled(event, env, ctx) {
     await handleScheduled(event, env, ctx);
   },

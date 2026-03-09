@@ -1,84 +1,88 @@
 import type { APIRoute } from 'astro';
-import { jsonResponse } from '../../../../lib/api';
-import { OpenAustraliaClient } from '../../../../lib/upstream/openaus';
-import { storeRawDocument } from '../../../../lib/audit';
-import { randomUUID } from 'crypto';
+import { jsonResponse, jsonError } from '../../../../lib/api';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ locals }) => {
-  const db = locals.runtime.env.DB;
-  const r2 = locals.runtime.env.R2;
-  const apiKey = locals.runtime.env.OPENAUSTRALIA_API_KEY;
+  const { DB } = locals.runtime.env;
 
   try {
-    const client = new OpenAustraliaClient({ apiKey });
+    const response = await fetch(
+      'https://www.aph.gov.au/api/Member/allmembers?format=json',
+      {
+        headers: {
+          'User-Agent': 'Australia First/1.0 accountability-platform',
+          Accept: 'application/json',
+        },
+      },
+    );
 
-    // Fetch MPs and Senators
-    const [mpsData, senatorsData] = await Promise.all([
-      client.getMPs(),
-      client.getSenators(),
-    ]);
+    if (!response.ok) {
+      return jsonError(`Parliament API returned ${response.status}`, 502);
+    }
 
-    // Store raw data
-    await storeRawDocument(db, r2, 'openaustralia-mps', mpsData);
-    await storeRawDocument(db, r2, 'openaustralia-senators', senatorsData);
+    const raw = await response.json() as {
+      Response?: {
+        Representatives?: unknown[];
+        Senators?: unknown[];
+      };
+    };
 
-    // Process and upsert politicians
+    const members = [
+      ...(raw?.Response?.Representatives ?? []),
+      ...(raw?.Response?.Senators ?? []),
+    ] as Array<{
+      Id?: string;
+      Name?: { First?: string; Last?: string };
+      Party?: { Name?: string; Abbreviation?: string };
+      Electorate?: string;
+      Chamber?: string;
+      Title?: string;
+    }>;
+
     let processedCount = 0;
-    const politicians = [...(mpsData as any[]), ...(senatorsData as any[])];
 
-    for (const mp of politicians) {
-      const politicianId = randomUUID();
-      const externalIds = JSON.stringify({
-        openaustralia: mp.person_id,
-      });
+    for (const member of members) {
+      if (!member.Id) continue;
 
-      // Upsert party
-      if (mp.party) {
-        await db
-          .prepare(
-            `INSERT OR IGNORE INTO parties (id, name, abbreviation) 
-             VALUES (?, ?, ?)`
-          )
-          .bind(mp.party.toLowerCase().replace(/\s+/g, '-'), mp.party, mp.party)
-          .run();
+      const id = `aph_${member.Id}`;
+      const name = [member.Name?.First, member.Name?.Last].filter(Boolean).join(' ');
+      const chamber = member.Title === 'Senator' ? 'senate' : 'representatives';
+      const partyName = member.Party?.Name ?? null;
+      const partyAbbr = member.Party?.Abbreviation ?? null;
+      const electorate = member.Electorate ?? null;
+
+      let partyId: string | null = null;
+      if (partyName) {
+        partyId = `party_${(partyAbbr ?? partyName).toLowerCase().replace(/\s+/g, '_')}`;
+        await DB.prepare(`
+          INSERT INTO parties (id, name, abbreviation) VALUES (?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET name = excluded.name, abbreviation = excluded.abbreviation
+        `).bind(partyId, partyName, partyAbbr).run();
       }
 
-      // Upsert politician
-      await db
-        .prepare(
-          `INSERT OR REPLACE INTO politicians 
-           (id, external_ids, name, chamber, party_id, electorate, dates) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        )
-        .bind(
-          politicianId,
-          externalIds,
-          mp.full_name,
-          mp.house === 'Representatives' ? 'house' : 'senate',
-          mp.party ? mp.party.toLowerCase().replace(/\s+/g, '-') : null,
-          mp.constituency || mp.division,
-          JSON.stringify({
-            entered: mp.entered_house || mp.entered_senate,
-            left: mp.left_house || mp.left_senate,
-          })
-        )
-        .run();
+      await DB.prepare(`
+        INSERT INTO politicians (id, name, chamber, party_id, electorate, jurisdiction)
+        VALUES (?, ?, ?, ?, ?, 'federal')
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          chamber = excluded.chamber,
+          party_id = excluded.party_id,
+          electorate = excluded.electorate
+      `).bind(id, name, chamber, partyId, electorate).run();
+
+      const photoId = `photo_${id}`;
+      await DB.prepare(`
+        INSERT OR IGNORE INTO politician_photos (id, politician_id, status)
+        VALUES (?, ?, 'pending')
+      `).bind(photoId, id).run();
 
       processedCount++;
     }
 
-    return jsonResponse({
-      success: true,
-      message: 'Roster sync completed',
-      processedCount,
-    });
-  } catch (e) {
-    console.error('Error in roster ETL:', e);
-    return jsonResponse(
-      { error: 'Internal server error', details: String(e) },
-      { status: 500 }
-    );
+    return jsonResponse({ success: true, message: 'Roster synced', processedCount });
+  } catch (err) {
+    console.error('Roster ETL error:', err);
+    return jsonError(`Roster ETL failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 };

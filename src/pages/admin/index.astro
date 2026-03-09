@@ -1,0 +1,342 @@
+---
+export const prerender = false;
+
+const authHeader = Astro.request.headers.get('Authorization');
+const adminPassword = Astro.locals.runtime?.env?.ADMIN_PASSWORD;
+
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aBytes = enc.encode(a);
+  const bBytes = enc.encode(b);
+  const len = Math.max(aBytes.length, bBytes.length);
+  let diff = aBytes.length ^ bBytes.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+  }
+  return diff === 0;
+}
+
+function checkAuth(): boolean {
+  if (!adminPassword) return true;
+  if (!authHeader) return false;
+  const [scheme, credentials] = authHeader.split(' ');
+  if (scheme !== 'Basic' || !credentials) return false;
+  const decoded = atob(credentials);
+  const colonIndex = decoded.indexOf(':');
+  const password = colonIndex >= 0 ? decoded.slice(colonIndex + 1) : '';
+  return timingSafeStringEqual(password, adminPassword);
+}
+
+if (!checkAuth()) {
+  return new Response('Unauthorized', {
+    status: 401,
+    headers: { 'WWW-Authenticate': 'Basic realm="Admin"', 'Content-Type': 'text/plain' },
+  });
+}
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Admin | Australia First</title>
+    <style>
+      body { background: #0a0a0a; color: #e8e8e8; font-family: 'Courier New', monospace; margin: 0; padding: 0; }
+      .admin-header {
+        background: #1a0000;
+        border-bottom: 3px solid #cc0000;
+        padding: 1rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .admin-header h1 { margin: 0; font-size: 1.2rem; color: #cc0000; text-transform: uppercase; letter-spacing: 0.2em; }
+      .admin-nav { display: flex; gap: 1rem; }
+      .admin-nav a { color: #888; text-decoration: none; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; }
+      .admin-nav a:hover { color: #e8e8e8; }
+      .container { padding: 2rem; max-width: 1000px; margin: 0 auto; }
+      h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.15em; color: #888; border-bottom: 1px solid #1a1a1a; padding-bottom: 0.5rem; margin-top: 2rem; }
+      .etl-section { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+      .btn {
+        background: #1a1a1a;
+        border: 1px solid #444;
+        color: #e8e8e8;
+        padding: 0.6rem 1.2rem;
+        font-family: inherit;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .btn:hover { background: #2a2a2a; border-color: #cc0000; }
+      .btn-primary { background: #cc0000; border-color: #cc0000; color: #fff; }
+      .btn-primary:hover { background: #aa0000; }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .status-msg { padding: 0.75rem 1rem; background: #111; border: 1px solid #333; font-size: 0.8rem; margin-top: 1rem; min-height: 2.5rem; }
+      .status-msg.success { border-color: #00aa44; color: #00aa44; }
+      .status-msg.error { border-color: #cc0000; color: #cc0000; }
+      .form-section { background: #111; border: 1px solid #2a2a2a; padding: 1.5rem; margin-bottom: 1.5rem; }
+      .form-row { margin-bottom: 1rem; }
+      .form-row label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 0.3rem; }
+      .form-row input, .form-row select, .form-row textarea {
+        width: 100%;
+        background: #1a1a1a;
+        border: 1px solid #444;
+        color: #e8e8e8;
+        padding: 0.5rem 0.75rem;
+        font-family: inherit;
+        font-size: 0.85rem;
+        box-sizing: border-box;
+      }
+      .form-row textarea { height: 80px; resize: vertical; }
+      .form-row input:focus, .form-row select:focus, .form-row textarea:focus { outline: 1px solid #cc0000; border-color: #cc0000; }
+      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+      .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+      .stat-card { background: #111; border: 1px solid #2a2a2a; padding: 1rem; text-align: center; }
+      .stat-value { font-size: 2rem; font-weight: 900; color: #cc0000; }
+      .stat-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-top: 0.25rem; }
+    </style>
+  </head>
+  <body>
+    <div class="admin-header">
+      <h1>Admin Console</h1>
+      <div class="admin-nav">
+        <a href="/">← Public Site</a>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="stat-politicians">—</div><div class="stat-label">Politicians</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-actions">—</div><div class="stat-label">Actions</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-donations">—</div><div class="stat-label">Donations</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-promises">—</div><div class="stat-label">Promises</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-ties">—</div><div class="stat-label">Foreign Ties</div></div>
+      </div>
+
+      <h2>ETL Operations</h2>
+      <div class="etl-section">
+        <button class="btn btn-primary" onclick="runETL('roster')">Sync Politician Roster</button>
+        <button class="btn" onclick="runETL('photos')">Fetch Photos</button>
+      </div>
+      <div class="status-msg" id="etl-status">Ready</div>
+
+      <h2>Add Record</h2>
+      <div class="form-section">
+        <div class="form-row">
+          <label>Politician ID *</label>
+          <input type="text" id="politician-id-input" placeholder="e.g. aph_10001" />
+        </div>
+        <div class="form-row">
+          <label>Record Type *</label>
+          <select id="record-type">
+            <option value="action">Action</option>
+            <option value="donation">Donation</option>
+            <option value="promise">Promise</option>
+            <option value="foreign-tie">Foreign Tie</option>
+          </select>
+        </div>
+
+        <div id="fields-action">
+          <div class="form-grid">
+            <div class="form-row"><label>Title *</label><input type="text" id="action-title" /></div>
+            <div class="form-row"><label>Date</label><input type="date" id="action-date" /></div>
+          </div>
+          <div class="form-row"><label>Description *</label><textarea id="action-desc"></textarea></div>
+          <div class="form-grid">
+            <div class="form-row"><label>Category</label><input type="text" id="action-category" placeholder="e.g. Environment" /></div>
+            <div class="form-row"><label>Source URL</label><input type="url" id="action-source" /></div>
+          </div>
+          <div class="form-row"><label>Evidence URL</label><input type="url" id="action-evidence" /></div>
+        </div>
+
+        <div id="fields-donation" style="display:none">
+          <div class="form-grid">
+            <div class="form-row"><label>Donor Name *</label><input type="text" id="donation-donor" /></div>
+            <div class="form-row"><label>Amount (AUD)</label><input type="number" id="donation-amount" placeholder="e.g. 5000" /></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-row"><label>Year</label><input type="number" id="donation-year" placeholder="e.g. 2023" /></div>
+            <div class="form-row"><label>Source URL</label><input type="url" id="donation-source" /></div>
+          </div>
+          <div class="form-row"><label>Notes</label><input type="text" id="donation-notes" /></div>
+        </div>
+
+        <div id="fields-promise" style="display:none">
+          <div class="form-row"><label>Title *</label><input type="text" id="promise-title" /></div>
+          <div class="form-row"><label>Description</label><textarea id="promise-desc"></textarea></div>
+          <div class="form-grid">
+            <div class="form-row"><label>Date Made</label><input type="date" id="promise-made" /></div>
+            <div class="form-row"><label>Deadline</label><input type="date" id="promise-deadline" /></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label>Status *</label>
+              <select id="promise-status">
+                <option value="pending">Pending</option>
+                <option value="kept">Kept</option>
+                <option value="broken">Broken</option>
+                <option value="partial">Partial</option>
+              </select>
+            </div>
+            <div class="form-row"><label>Source URL</label><input type="url" id="promise-source" /></div>
+          </div>
+          <div class="form-row"><label>Evidence URL</label><input type="url" id="promise-evidence" /></div>
+        </div>
+
+        <div id="fields-foreign-tie" style="display:none">
+          <div class="form-grid">
+            <div class="form-row"><label>Entity Name *</label><input type="text" id="tie-entity" /></div>
+            <div class="form-row"><label>Country</label><input type="text" id="tie-country" /></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label>Relationship Type</label>
+              <select id="tie-type">
+                <option value="">Select...</option>
+                <option value="donation">Donation</option>
+                <option value="directorship">Directorship</option>
+                <option value="travel">Travel</option>
+                <option value="lobbying">Lobbying</option>
+                <option value="membership">Membership</option>
+                <option value="employment">Employment</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Risk Rating *</label>
+              <select id="tie-risk">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row"><label>Description</label><textarea id="tie-desc"></textarea></div>
+          <div class="form-grid">
+            <div class="form-row"><label>Date From</label><input type="date" id="tie-start" /></div>
+            <div class="form-row"><label>Date To</label><input type="date" id="tie-end" /></div>
+          </div>
+          <div class="form-row"><label>Source URL</label><input type="url" id="tie-source" /></div>
+        </div>
+
+        <div style="margin-top:1rem">
+          <button class="btn btn-primary" onclick="submitRecord()">Add Record</button>
+        </div>
+        <div class="status-msg" id="form-status" style="margin-top:1rem">—</div>
+      </div>
+    </div>
+
+    <script>
+      const recordType = document.getElementById('record-type');
+      recordType.addEventListener('change', () => {
+        ['action','donation','promise','foreign-tie'].forEach(t => {
+          document.getElementById(`fields-${t}`).style.display = t === recordType.value ? 'block' : 'none';
+        });
+      });
+
+      async function runETL(type) {
+        const statusEl = document.getElementById('etl-status');
+        statusEl.className = 'status-msg';
+        statusEl.textContent = `Running ${type} ETL...`;
+        try {
+          const endpoint = type === 'roster' ? '/api/internal/etl/roster' : '/api/internal/photos/fetch';
+          const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+          const data = await res.json();
+          statusEl.className = 'status-msg success';
+          statusEl.textContent = JSON.stringify(data);
+          loadStats();
+        } catch (e) {
+          statusEl.className = 'status-msg error';
+          statusEl.textContent = `Error: ${e.message}`;
+        }
+      }
+
+      async function submitRecord() {
+        const statusEl = document.getElementById('form-status');
+        const politicianId = document.getElementById('politician-id-input').value.trim();
+        const type = document.getElementById('record-type').value;
+
+        if (!politicianId) { statusEl.className='status-msg error'; statusEl.textContent='Politician ID required'; return; }
+
+        let endpoint = '';
+        let body = {};
+
+        if (type === 'action') {
+          endpoint = `/api/admin/politicians/${politicianId}/actions`;
+          body = {
+            title: document.getElementById('action-title').value,
+            description: document.getElementById('action-desc').value,
+            date: document.getElementById('action-date').value || undefined,
+            category: document.getElementById('action-category').value || undefined,
+            source_url: document.getElementById('action-source').value || undefined,
+            evidence_url: document.getElementById('action-evidence').value || undefined,
+          };
+        } else if (type === 'donation') {
+          endpoint = `/api/admin/politicians/${politicianId}/donations`;
+          const amt = document.getElementById('donation-amount').value;
+          body = {
+            donor_name: document.getElementById('donation-donor').value,
+            amount_cents: amt ? Math.round(parseFloat(amt) * 100) : undefined,
+            year: document.getElementById('donation-year').value ? parseInt(document.getElementById('donation-year').value) : undefined,
+            source_url: document.getElementById('donation-source').value || undefined,
+            notes: document.getElementById('donation-notes').value || undefined,
+          };
+        } else if (type === 'promise') {
+          endpoint = `/api/admin/politicians/${politicianId}/promises`;
+          body = {
+            title: document.getElementById('promise-title').value,
+            description: document.getElementById('promise-desc').value || undefined,
+            made_date: document.getElementById('promise-made').value || undefined,
+            deadline_date: document.getElementById('promise-deadline').value || undefined,
+            status: document.getElementById('promise-status').value,
+            source_url: document.getElementById('promise-source').value || undefined,
+            evidence_url: document.getElementById('promise-evidence').value || undefined,
+          };
+        } else if (type === 'foreign-tie') {
+          endpoint = `/api/admin/politicians/${politicianId}/foreign-ties`;
+          body = {
+            entity_name: document.getElementById('tie-entity').value,
+            entity_country: document.getElementById('tie-country').value || undefined,
+            relationship_type: document.getElementById('tie-type').value || undefined,
+            risk_rating: document.getElementById('tie-risk').value,
+            description: document.getElementById('tie-desc').value || undefined,
+            date_start: document.getElementById('tie-start').value || undefined,
+            date_end: document.getElementById('tie-end').value || undefined,
+            source_url: document.getElementById('tie-source').value || undefined,
+          };
+        }
+
+        statusEl.className = 'status-msg';
+        statusEl.textContent = 'Submitting...';
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || res.statusText);
+          statusEl.className = 'status-msg success';
+          statusEl.textContent = `Success! ID: ${data.id}`;
+          loadStats();
+        } catch (e) {
+          statusEl.className = 'status-msg error';
+          statusEl.textContent = `Error: ${e.message}`;
+        }
+      }
+
+      async function loadStats() {
+        try {
+          const res = await fetch('/api/v1/politicians.json');
+          const data = await res.json();
+          document.getElementById('stat-politicians').textContent = data.count ?? '—';
+        } catch {}
+      }
+
+      loadStats();
+    </script>
+  </body>
+</html>
