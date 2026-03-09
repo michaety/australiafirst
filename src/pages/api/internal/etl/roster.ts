@@ -11,7 +11,7 @@ export const POST: APIRoute = async ({ locals }) => {
       'https://www.aph.gov.au/api/Member/allmembers?format=json',
       {
         headers: {
-          'User-Agent': 'AustraliaFirst/1.0 accountability-platform',
+          'User-Agent': 'Australia First/1.0 accountability-platform',
           Accept: 'application/json',
         },
       },

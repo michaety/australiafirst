@@ -22,7 +22,7 @@ export async function fetchPhotoBuffer(url: string): Promise<ArrayBuffer | null>
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'AustraliaFirst/1.0 accountability-platform',
+        'User-Agent': 'Australia First/1.0 accountability-platform',
         Accept: 'image/*',
       },
     });
