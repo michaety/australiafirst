@@ -45,6 +45,19 @@ export async function withCache<T>(
   return fresh;
 }
 
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aBytes = enc.encode(a);
+  const bBytes = enc.encode(b);
+  // Always iterate over max length to avoid length-based timing leaks
+  const len = Math.max(aBytes.length, bBytes.length);
+  let diff = aBytes.length ^ bBytes.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 export function requireAdminAuth(request: Request, env: Env): Response | null {
   const authHeader = request.headers.get('Authorization');
   const adminPassword = env.ADMIN_PASSWORD;
@@ -53,8 +66,9 @@ export function requireAdminAuth(request: Request, env: Env): Response | null {
   const [scheme, credentials] = authHeader.split(' ');
   if (scheme !== 'Basic' || !credentials) return new Response('Unauthorized', { status: 401 });
   const decoded = atob(credentials);
-  const [, password] = decoded.split(':');
-  if (password !== adminPassword) return new Response('Unauthorized', { status: 401 });
+  const colonIndex = decoded.indexOf(':');
+  const password = colonIndex >= 0 ? decoded.slice(colonIndex + 1) : '';
+  if (!timingSafeStringEqual(password, adminPassword)) return new Response('Unauthorized', { status: 401 });
   return null;
 }
 

@@ -46,7 +46,7 @@ export const POST: APIRoute = async ({ locals }) => {
       if (!member.Id) continue;
 
       const id = `aph_${member.Id}`;
-      const name = `${member.Name?.First ?? ''} ${member.Name?.Last ?? ''}`.trim();
+      const name = [member.Name?.First, member.Name?.Last].filter(Boolean).join(' ');
       const chamber = member.Title === 'Senator' ? 'senate' : 'representatives';
       const partyName = member.Party?.Name ?? null;
       const partyAbbr = member.Party?.Abbreviation ?? null;

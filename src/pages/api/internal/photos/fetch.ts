@@ -29,7 +29,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       id: string;
       politician_id: string;
       name: string;
-    }>();
+    }>().catch((err) => {
+      console.error('Photo fetch: DB query failed:', err);
+      throw err;
+    });
 
     let fetched = 0;
     let failed = 0;
