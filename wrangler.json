@@ -1,45 +1,47 @@
 {
-	"name": "australiafirst",
-	"compatibility_date": "2025-10-08",
-	"compatibility_flags": ["nodejs_compat"],
-	"main": "./dist/worker-wrapper.js",
-	"assets": {
-		"directory": "./dist",
-		"binding": "ASSETS"
-	},
-	"observability": {
-		"enabled": true
-	},
-	"upload_source_maps": true,
-	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "australiafirst",
-			"database_id": "f9e743c7-e125-4d30-a75c-60d4c5fe52eb"
-		}
-	],
-	"kv_namespaces": [
-		{
-			"binding": "KV",
-			"id": "f8163c67a46d4e41a0a58b114180966a"
-		},
-		{
-			"binding": "SESSION",
-			"id": "f8163c67a46d4e41a0a58b114180966a"
-		}
-	],
-	"r2_buckets": [
-		{
-			"binding": "R2",
-			"bucket_name": "australiafirst"
-		}
-	],
-	"triggers": {
-		"crons": [
-			"0 2 * * *",
-			"30 2 * * *",
-			"0 4 * * *",
-			"0 3 * * SUN"
-		]
-	}
+  "name": "australiafirst",
+  "compatibility_date": "2025-10-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./dist/worker-wrapper.js",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "australiafirst",
+      "database_id": "f9e743c7-e125-4d30-a75c-60d4c5fe52eb"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "f8163c67a46d4e41a0a58b114180966a"
+    },
+    {
+      "binding": "SESSION",
+      "id": "f8163c67a46d4e41a0a58b114180966a"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "australiafirst"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
+  "triggers": {
+    "crons": [
+      "0 2 * * *",
+      "0 3 * * *",
+      "0 4 * * *"
+    ]
+  }
 }

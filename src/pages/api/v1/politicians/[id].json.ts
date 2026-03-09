@@ -1,117 +1,83 @@
 import type { APIRoute } from 'astro';
-import { jsonResponse, withCache } from '../../../../lib/api';
-import { getPoliticianById, getLatestScoreRun } from '../../../../lib/db';
+import { jsonResponse, jsonError, withCache } from '../../../../lib/api';
+import { getPoliticianProfile } from '../../../../lib/db';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ locals, params }) => {
-  const db = locals.runtime.env.DB;
-  const kv = locals.runtime.env.KV;
+export const GET: APIRoute = async ({ params, locals }) => {
+  const { DB, KV } = locals.runtime.env;
   const { id } = params;
 
-  if (!id) {
-    return jsonResponse({ error: 'Politician ID required' }, { status: 400 });
-  }
-
-  const cacheKey = `api:politician:${id}`;
+  if (!id) return jsonError('Missing politician ID', 400);
 
   try {
-    const data = await withCache(
-      kv,
-      cacheKey,
-      async () => {
-        const politician = await getPoliticianById(db, id);
-        if (!politician) {
-          return null;
-        }
+    const cacheKey = `v1:politician:${id}`;
+    const data = await withCache(KV, cacheKey, async () => {
+      const profile = await getPoliticianProfile(DB, id);
+      if (!profile) return null;
+      const { politician, actions, donations, promises, foreignTies } = profile;
+      return {
+        updatedAt: new Date().toISOString(),
+        politician: {
+          id: politician.id,
+          name: politician.name,
+          chamber: politician.chamber,
+          party: politician.party_abbreviation ?? politician.party_name ?? null,
+          partyName: politician.party_name ?? null,
+          electorate: politician.electorate,
+          jurisdiction: politician.jurisdiction,
+          photoUrl: politician.photo_url,
+          hasMugshot: !!politician.mugshot_r2_key,
+          bio: politician.bio,
+          website: politician.website,
+        },
+        actions: actions.map((a) => ({
+          id: a.id,
+          title: a.title,
+          description: a.description,
+          date: a.date,
+          category: a.category,
+          sourceUrl: a.source_url,
+          evidenceUrl: a.evidence_url,
+        })),
+        donations: donations.map((d) => ({
+          id: d.id,
+          donorName: d.donor_name,
+          amountCents: d.amount_cents,
+          year: d.year,
+          source: d.source,
+          sourceUrl: d.source_url,
+          notes: d.notes,
+        })),
+        promises: promises.map((p) => ({
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          madeDate: p.made_date,
+          deadlineDate: p.deadline_date,
+          status: p.status,
+          evidenceUrl: p.evidence_url,
+          sourceUrl: p.source_url,
+          notes: p.notes,
+        })),
+        foreignTies: foreignTies.map((f) => ({
+          id: f.id,
+          entityName: f.entity_name,
+          entityCountry: f.entity_country,
+          relationshipType: f.relationship_type,
+          riskRating: f.risk_rating,
+          description: f.description,
+          dateStart: f.date_start,
+          dateEnd: f.date_end,
+          sourceUrl: f.source_url,
+        })),
+      };
+    }, 60);
 
-        const latestRun = await getLatestScoreRun(db);
-
-        if (!latestRun) {
-          return {
-            frameworkVersion: 'v0.1.0',
-            lastUpdated: new Date().toISOString().split('T')[0],
-            politician: {
-              id: politician.id,
-              name: politician.name,
-              party: null,
-              seat: politician.electorate,
-              chamber: politician.chamber,
-              jurisdiction: politician.jurisdiction,
-              avatar: politician.image_url,
-              overall: null,
-              categoryScores: {},
-            },
-          };
-        }
-
-        // Get party info
-        const party = politician.party_id
-          ? await db
-              .prepare('SELECT name FROM parties WHERE id = ?')
-              .bind(politician.party_id)
-              .first<{ name: string }>()
-          : null;
-
-        // Get overall score
-        const overallScore = await db
-          .prepare(
-            'SELECT overall_0_100, coverage FROM politician_overall_scores WHERE score_run_id = ? AND politician_id = ?'
-          )
-          .bind(latestRun, id)
-          .first<{ overall_0_100: number; coverage: number }>();
-
-        // Get category scores
-        const categoryScores = await db
-          .prepare(
-            `SELECT pcs.*, c.slug 
-             FROM politician_category_scores pcs
-             JOIN categories c ON pcs.category_id = c.id
-             WHERE pcs.score_run_id = ? AND pcs.politician_id = ?`
-          )
-          .bind(latestRun, id)
-          .all();
-
-        const categoryScoresMap: Record<string, any> = {};
-        for (const cs of categoryScores.results as any[]) {
-          categoryScoresMap[cs.slug] = {
-            score_0_100: Math.round(cs.score_0_100),
-            score_signed: Math.round(cs.score_signed),
-            coverage: Math.round(cs.coverage * 100),
-          };
-        }
-
-        return {
-          frameworkVersion: 'v0.1.0',
-          lastUpdated: new Date().toISOString().split('T')[0],
-          politician: {
-            id: politician.id,
-            name: politician.name,
-            party: party?.name ?? null,
-            seat: politician.electorate,
-            chamber: politician.chamber,
-            jurisdiction: politician.jurisdiction,
-            avatar: politician.image_url,
-            overall: overallScore
-              ? {
-                  score_0_100: Math.round(overallScore.overall_0_100),
-                  coverage: Math.round(overallScore.coverage * 100),
-                }
-              : null,
-            categoryScores: categoryScoresMap,
-          },
-        };
-      },
-      60
-    );
-
-    if (!data) {
-      return jsonResponse({ error: 'Politician not found' }, { status: 404 });
-    }
-
-    return jsonResponse(data);
-  } catch (e) {
-    console.error('Error in /api/v1/politicians/[id].json:', e);
-    return jsonResponse({ error: 'Internal server error' }, { status: 500 });
+    if (!data) return jsonError('Politician not found', 404);
+    return jsonResponse(data, { ttl: 60 });
+  } catch (err) {
+    console.error(`GET /api/v1/politicians/${id}.json error:`, err);
+    return jsonError('Failed to fetch politician profile');
   }
 };

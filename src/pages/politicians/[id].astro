@@ -1,0 +1,338 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead title="Politician Profile | Australia First" description="Accountability profile for Australian federal politician" />
+    <style>
+      body { background: #0a0a0a; color: #e8e8e8; font-family: 'Courier New', monospace; margin: 0; }
+      .back-link {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        color: #888;
+        text-decoration: none;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        border-bottom: 1px solid #1a1a1a;
+        width: 100%;
+        background: #0f0f0f;
+        box-sizing: border-box;
+      }
+      .back-link:hover { color: #cc0000; }
+      .profile-header {
+        display: flex;
+        gap: 2rem;
+        padding: 2rem;
+        border-bottom: 1px solid #1a1a1a;
+        background: #0f0f0f;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .mugshot {
+        width: 160px;
+        flex-shrink: 0;
+        aspect-ratio: 3/4;
+        background: #1a1a1a;
+        overflow: hidden;
+        border: 2px solid #2a2a2a;
+      }
+      .mugshot img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        filter: grayscale(20%) contrast(1.15);
+      }
+      .mugshot-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 4rem;
+        color: #333;
+      }
+      .profile-info { flex: 1; min-width: 200px; }
+      .profile-name {
+        font-size: 2rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #fff;
+        margin: 0 0 0.5rem;
+        line-height: 1.2;
+      }
+      .profile-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+      .meta-pill {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 0.25rem 0.6rem;
+        border: 1px solid;
+      }
+      .pill-party { color: #ff9900; border-color: #ff9900; }
+      .pill-chamber { color: #00aaff; border-color: #00aaff; }
+      .pill-electorate { color: #888; border-color: #444; }
+      .profile-bio { color: #aaa; font-size: 0.85rem; line-height: 1.6; max-width: 600px; }
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid #2a2a2a;
+        background: #0f0f0f;
+        overflow-x: auto;
+      }
+      .tab {
+        padding: 1rem 1.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        border: none;
+        background: none;
+        color: #666;
+        white-space: nowrap;
+        border-bottom: 3px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+        font-family: inherit;
+      }
+      .tab:hover { color: #e8e8e8; }
+      .tab.active { color: #cc0000; border-bottom-color: #cc0000; }
+      .tab-badge {
+        display: inline-block;
+        margin-left: 0.4rem;
+        background: #1a1a1a;
+        padding: 0.1rem 0.3rem;
+        font-size: 0.65rem;
+        color: #666;
+      }
+      .tab-content { display: none; padding: 2rem; max-width: 900px; margin: 0 auto; }
+      .tab-content.active { display: block; }
+      .empty-tab { color: #555; font-size: 0.85rem; padding: 2rem 0; text-align: center; }
+      .item-card {
+        background: #111;
+        border: 1px solid #2a2a2a;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 3px solid #333;
+      }
+      .item-card.status-kept { border-left-color: #00aa44; }
+      .item-card.status-broken { border-left-color: #cc0000; }
+      .item-card.status-partial { border-left-color: #ff9900; }
+      .item-card.status-pending { border-left-color: #666; }
+      .item-card.risk-critical { border-left-color: #cc0000; }
+      .item-card.risk-high { border-left-color: #ff4400; }
+      .item-card.risk-medium { border-left-color: #ff9900; }
+      .item-card.risk-low { border-left-color: #444; }
+      .item-title { font-size: 0.9rem; font-weight: 700; color: #e8e8e8; margin-bottom: 0.4rem; }
+      .item-desc { font-size: 0.8rem; color: #aaa; line-height: 1.5; margin-bottom: 0.5rem; }
+      .item-meta { display: flex; gap: 1rem; flex-wrap: wrap; }
+      .item-meta span { font-size: 0.7rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+      .item-meta a { color: #4499ff; text-decoration: none; font-size: 0.7rem; }
+      .item-meta a:hover { text-decoration: underline; }
+      .status-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 0.15rem 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .badge-kept { background: #003300; color: #00aa44; border: 1px solid #00aa44; }
+      .badge-broken { background: #330000; color: #cc0000; border: 1px solid #cc0000; }
+      .badge-partial { background: #331a00; color: #ff9900; border: 1px solid #ff9900; }
+      .badge-pending { background: #1a1a1a; color: #888; border: 1px solid #444; }
+      .risk-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 0.15rem 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .risk-critical { background: #330000; color: #cc0000; border: 1px solid #cc0000; }
+      .risk-high { background: #331100; color: #ff4400; border: 1px solid #ff4400; }
+      .risk-medium { background: #332200; color: #ff9900; border: 1px solid #ff9900; }
+      .risk-low { background: #1a1a1a; color: #888; border: 1px solid #444; }
+      .donation-amount { font-size: 1.1rem; font-weight: 900; color: #ff9900; margin-bottom: 0.25rem; }
+      .section-total { font-size: 0.8rem; color: #666; margin-bottom: 1.5rem; padding: 0.5rem; background: #111; border: 1px solid #1a1a1a; }
+      .loading-state { text-align: center; padding: 4rem; color: #555; }
+      @media (max-width: 600px) {
+        .profile-header { padding: 1rem; gap: 1rem; }
+        .mugshot { width: 100px; }
+        .profile-name { font-size: 1.4rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="back-link" href="/">← Back to Register</a>
+    <div id="profile-container">
+      <div class="loading-state">Loading profile...</div>
+    </div>
+
+    <script define:vars={{ politicianId: id }}>
+      function formatAmount(cents) {
+        if (!cents) return 'Undisclosed';
+        return '$' + (cents / 100).toLocaleString('en-AU', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      }
+
+      function formatDate(d) {
+        if (!d) return '';
+        return new Date(d).toLocaleDateString('en-AU', { year: 'numeric', month: 'short', day: 'numeric' });
+      }
+
+      function renderActions(actions) {
+        if (!actions.length) return '<div class="empty-tab">No documented actions on record.</div>';
+        return actions.map(a => `
+          <div class="item-card">
+            <div class="item-title">${a.title}</div>
+            ${a.description ? `<div class="item-desc">${a.description}</div>` : ''}
+            <div class="item-meta">
+              ${a.date ? `<span>${formatDate(a.date)}</span>` : ''}
+              ${a.category ? `<span>${a.category}</span>` : ''}
+              ${a.sourceUrl ? `<a href="${a.sourceUrl}" target="_blank" rel="noopener">Source ↗</a>` : ''}
+              ${a.evidenceUrl ? `<a href="${a.evidenceUrl}" target="_blank" rel="noopener">Evidence ↗</a>` : ''}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function renderDonations(donations) {
+        if (!donations.length) return '<div class="empty-tab">No donation records found.</div>';
+        const total = donations.reduce((sum, d) => sum + (d.amountCents || 0), 0);
+        const totalStr = total > 0 ? `Total disclosed: ${formatAmount(total)}` : 'Total: undisclosed amounts only';
+        return `
+          <div class="section-total">${totalStr} across ${donations.length} record${donations.length !== 1 ? 's' : ''}</div>
+          ${donations.map(d => `
+            <div class="item-card">
+              <div class="donation-amount">${formatAmount(d.amountCents)}</div>
+              <div class="item-title">${d.donorName}</div>
+              <div class="item-meta">
+                ${d.year ? `<span>${d.year}</span>` : ''}
+                <span>${d.source}</span>
+                ${d.sourceUrl ? `<a href="${d.sourceUrl}" target="_blank" rel="noopener">Source ↗</a>` : ''}
+                ${d.notes ? `<span>${d.notes}</span>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        `;
+      }
+
+      function renderPromises(promises) {
+        if (!promises.length) return '<div class="empty-tab">No election promises on record.</div>';
+        return promises.map(p => {
+          const badgeClass = `badge-${p.status}`;
+          const statusLabel = p.status.charAt(0).toUpperCase() + p.status.slice(1);
+          return `
+            <div class="item-card status-${p.status}">
+              <div class="status-badge ${badgeClass}">${statusLabel}</div>
+              <div class="item-title">${p.title}</div>
+              ${p.description ? `<div class="item-desc">${p.description}</div>` : ''}
+              <div class="item-meta">
+                ${p.madeDate ? `<span>Made: ${formatDate(p.madeDate)}</span>` : ''}
+                ${p.deadlineDate ? `<span>Deadline: ${formatDate(p.deadlineDate)}</span>` : ''}
+                ${p.sourceUrl ? `<a href="${p.sourceUrl}" target="_blank" rel="noopener">Source ↗</a>` : ''}
+                ${p.evidenceUrl ? `<a href="${p.evidenceUrl}" target="_blank" rel="noopener">Evidence ↗</a>` : ''}
+                ${p.notes ? `<span>${p.notes}</span>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderForeignTies(ties) {
+        if (!ties.length) return '<div class="empty-tab">No foreign ties on record.</div>';
+        return ties.map(f => `
+          <div class="item-card risk-${f.riskRating}">
+            <div class="risk-badge risk-${f.riskRating}">${f.riskRating.toUpperCase()} RISK</div>
+            <div class="item-title">${f.entityName}${f.entityCountry ? ` (${f.entityCountry})` : ''}</div>
+            ${f.description ? `<div class="item-desc">${f.description}</div>` : ''}
+            <div class="item-meta">
+              ${f.relationshipType ? `<span>${f.relationshipType}</span>` : ''}
+              ${f.dateStart ? `<span>From: ${formatDate(f.dateStart)}</span>` : ''}
+              ${f.dateEnd ? `<span>To: ${formatDate(f.dateEnd)}</span>` : ''}
+              ${f.sourceUrl ? `<a href="${f.sourceUrl}" target="_blank" rel="noopener">Source ↗</a>` : ''}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      async function loadProfile() {
+        try {
+          const res = await fetch(`/api/v1/politicians/${politicianId}.json`);
+          if (res.status === 404) {
+            document.getElementById('profile-container').innerHTML =
+              '<div style="padding:4rem;text-align:center;color:#666">Politician not found.</div>';
+            return;
+          }
+          const data = await res.json();
+          const { politician, actions, donations, promises, foreignTies } = data;
+
+          const initials = politician.name.split(' ').map(n => n[0]).join('').slice(0, 2);
+          const photoHtml = politician.photoUrl
+            ? `<img src="${politician.photoUrl}" alt="${politician.name}" loading="lazy">`
+            : `<div class="mugshot-placeholder">${initials}</div>`;
+
+          const html = `
+            <div class="profile-header">
+              <div class="mugshot">${photoHtml}</div>
+              <div class="profile-info">
+                <h1 class="profile-name">${politician.name}</h1>
+                <div class="profile-meta">
+                  ${politician.party ? `<span class="meta-pill pill-party">${politician.partyName || politician.party}</span>` : ''}
+                  <span class="meta-pill pill-chamber">${politician.chamber === 'senate' ? 'Senator' : 'MP'}</span>
+                  ${politician.electorate ? `<span class="meta-pill pill-electorate">${politician.electorate}</span>` : ''}
+                </div>
+                ${politician.bio ? `<div class="profile-bio">${politician.bio}</div>` : ''}
+              </div>
+            </div>
+            <div class="tabs">
+              <button class="tab active" data-tab="actions">
+                Actions <span class="tab-badge">${actions.length}</span>
+              </button>
+              <button class="tab" data-tab="money">
+                Follow the Money <span class="tab-badge">${donations.length}</span>
+              </button>
+              <button class="tab" data-tab="promises">
+                They Promised <span class="tab-badge">${promises.length}</span>
+              </button>
+              <button class="tab" data-tab="foreign">
+                Foreign Ties <span class="tab-badge">${foreignTies.length}</span>
+              </button>
+            </div>
+            <div id="tab-actions" class="tab-content active">${renderActions(actions)}</div>
+            <div id="tab-money" class="tab-content">${renderDonations(donations)}</div>
+            <div id="tab-promises" class="tab-content">${renderPromises(promises)}</div>
+            <div id="tab-foreign" class="tab-content">${renderForeignTies(foreignTies)}</div>
+          `;
+
+          document.getElementById('profile-container').innerHTML = html;
+          document.title = `${politician.name} | Australia First`;
+
+          document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+              document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+              document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+              tab.classList.add('active');
+              document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+            });
+          });
+
+        } catch (e) {
+          document.getElementById('profile-container').innerHTML =
+            `<div style="padding:4rem;text-align:center;color:#666">Failed to load profile.</div>`;
+        }
+      }
+
+      loadProfile();
+    </script>
+  </body>
+</html>
