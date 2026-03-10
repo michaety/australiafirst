@@ -242,7 +242,7 @@ if (!checkAuth()) {
         statusEl.className = 'status-msg';
         statusEl.textContent = `Running ${type} ETL...`;
         try {
-          const endpoint = type === 'roster' ? '/api/internal/etl/roster' : '/api/internal/photos/fetch';
+          const endpoint = type === 'roster' ? '/api/internal/etl/roster' : '/api/internal/etl/photos';
           const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
           const data = await res.json();
           statusEl.className = 'status-msg success';

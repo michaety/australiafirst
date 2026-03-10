@@ -34,15 +34,35 @@ export async function runPhotosETL(env: Env) {
       let processedBuffer: ArrayBuffer = buffer;
       try {
         const uint8 = new Uint8Array(buffer);
-        const result = await AI.run('@cf/stabilityai/stable-diffusion-xl-base-1.0', {
-          prompt: 'police mugshot photo, harsh fluorescent lighting, high contrast, desaturated, gritty, front facing, plain grey background',
-          image: Array.from(uint8),
-          strength: 0.4,
-          num_inference_steps: 8,
-        });
-        processedBuffer = result instanceof Uint8Array ? result.buffer : buffer;
-      } catch {
-        // AI processing failed, use original
+        const aiResult = await AI.run('@cf/bytedance/stable-diffusion-xl-lightning' as any, {
+          prompt: 'police mugshot photo, harsh overhead fluorescent lighting, high contrast, desaturated washed out colors, gritty, front facing portrait, plain grey background, booking photo style',
+          image: [...uint8],
+          strength: 0.35,
+          guidance: 7.5,
+        }) as ReadableStream | Uint8Array | ArrayBuffer;
+        if (aiResult instanceof Uint8Array) {
+          processedBuffer = aiResult.buffer;
+        } else if (aiResult instanceof ArrayBuffer) {
+          processedBuffer = aiResult;
+        } else if (aiResult instanceof ReadableStream) {
+          const reader = aiResult.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) chunks.push(value);
+          }
+          const total = chunks.reduce((s, c) => s + c.length, 0);
+          const merged = new Uint8Array(total);
+          let offset = 0;
+          for (const chunk of chunks) {
+            merged.set(chunk, offset);
+            offset += chunk.length;
+          }
+          processedBuffer = merged.buffer;
+        }
+      } catch (aiErr) {
+        console.error('AI mugshot processing failed, using original:', aiErr);
       }
 
       await R2.put(r2Key, processedBuffer, {

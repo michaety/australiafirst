@@ -78,6 +78,13 @@ export async function runRosterETL(env: Env) {
     processedCount++;
   }
 
+  // Invalidate KV cache so API serves fresh data
+  const KV = env.KV;
+  const keys = await KV.list({ prefix: 'v1:politicians' });
+  for (const key of keys.keys) {
+    await KV.delete(key.name);
+  }
+
   return { success: true, message: 'Roster synced', processedCount };
 }
 
