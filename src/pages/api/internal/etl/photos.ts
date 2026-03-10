@@ -8,9 +8,8 @@ export const POST: APIRoute = async ({ locals }) => {
 
   try {
     const pending = await DB.prepare(`
-      SELECT pp.id, pp.politician_id, p.external_ids
+      SELECT pp.id, pp.politician_id, pp.source_url
       FROM politician_photos pp
-      JOIN politicians p ON p.id = pp.politician_id
       WHERE pp.status = 'pending'
       LIMIT 50
     `).all();
@@ -18,10 +17,11 @@ export const POST: APIRoute = async ({ locals }) => {
     let fetched = 0;
     let errors = 0;
 
-    for (const row of pending.results as Array<{ id: string; politician_id: string; external_ids: string | null }>) {
+    for (const row of pending.results as Array<{ id: string; politician_id: string; source_url: string | null }>) {
       const politicianId = row.politician_id;
-      const aphId = politicianId.replace('oa_', '');
-      const photoUrl = `https://www.aph.gov.au/api/parliamentarian/${aphId}/image`;
+      const photoUrl = row.source_url;
+
+      if (!photoUrl) continue;
 
       try {
         const res = await fetch(photoUrl, {
