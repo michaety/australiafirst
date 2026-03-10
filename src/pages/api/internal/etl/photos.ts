@@ -8,20 +8,19 @@ export const POST: APIRoute = async ({ locals }) => {
 
   try {
     const pending = await DB.prepare(`
-      SELECT pp.id, pp.politician_id, pp.source_url
+      SELECT pp.id, pp.politician_id, p.image_url
       FROM politician_photos pp
-      WHERE pp.status = 'pending'
+      JOIN politicians p ON p.id = pp.politician_id
+      WHERE pp.status = 'pending' AND p.image_url IS NOT NULL
       LIMIT 50
     `).all();
 
     let fetched = 0;
     let errors = 0;
 
-    for (const row of pending.results as Array<{ id: string; politician_id: string; source_url: string | null }>) {
+    for (const row of pending.results as Array<{ id: string; politician_id: string; image_url: string }>) {
       const politicianId = row.politician_id;
-      const photoUrl = row.source_url;
-
-      if (!photoUrl) continue;
+      const photoUrl = `https://www.openaustralia.org.au${row.image_url}`;
 
       try {
         const res = await fetch(photoUrl, {
