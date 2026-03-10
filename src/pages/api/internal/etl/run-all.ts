@@ -1,42 +1,31 @@
 import type { APIRoute } from 'astro';
 import { jsonResponse, jsonError, requireInternalSecret } from '../../../../lib/api';
+import { runRosterETL } from './roster';
+import { runPhotosETL } from './photos';
+import { runDivisionsETL } from './divisions';
+import { runDonationsETL } from './donations';
+import { runForeignTiesETL } from './foreign-ties';
 
 export const prerender = false;
 
-const JOBS = [
-  { name: 'roster', path: '/api/internal/etl/roster' },
-  { name: 'photos', path: '/api/internal/etl/photos' },
-  { name: 'divisions', path: '/api/internal/etl/divisions' },
-  { name: 'donations', path: '/api/internal/etl/donations' },
-  { name: 'foreign-ties', path: '/api/internal/etl/foreign-ties' },
-];
-
-export const POST: APIRoute = async ({ request, locals, url }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   const authErr = requireInternalSecret(request, locals.runtime.env);
   if (authErr) return authErr;
 
-  const origin = url.origin;
-  const secret = request.headers.get('X-Internal-Secret') || request.headers.get('X-Cron-Trigger') || '';
-
+  const env = locals.runtime.env;
   const results: Record<string, unknown> = {};
 
-  for (const job of JOBS) {
-    const jobUrl = `${origin}${job.path}`;
-    try {
-      const res = await fetch(jobUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Internal-Secret': secret,
-          'X-Cron-Trigger': request.headers.get('X-Cron-Trigger') || '',
-        },
-      });
+  const jobs = [
+    { name: 'roster', fn: () => runRosterETL(env) },
+    { name: 'photos', fn: () => runPhotosETL(env) },
+    { name: 'divisions', fn: () => runDivisionsETL(env) },
+    { name: 'donations', fn: () => runDonationsETL(env) },
+    { name: 'foreignTies', fn: () => runForeignTiesETL(env) },
+  ];
 
-      if (res.headers.get('content-type')?.includes('application/json')) {
-        results[job.name] = await res.json();
-      } else {
-        results[job.name] = { status: res.status, body: await res.text() };
-      }
+  for (const job of jobs) {
+    try {
+      results[job.name] = await job.fn();
     } catch (err) {
       results[job.name] = { error: err instanceof Error ? err.message : String(err) };
     }

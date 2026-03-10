@@ -15,23 +15,27 @@
     {
       "binding": "DB",
       "database_name": "australiafirst",
-      "database_id": "f9e743c7-e125-4d30-a75c-60d4c5fe52eb"
+      "database_id": "f9e743c7-e125-4d30-a75c-60d4c5fe52eb",
+      "preview_database_id": "f9e743c7-e125-4d30-a75c-60d4c5fe52eb"
     }
   ],
   "kv_namespaces": [
     {
       "binding": "KV",
-      "id": "f8163c67a46d4e41a0a58b114180966a"
+      "id": "f8163c67a46d4e41a0a58b114180966a",
+      "preview_id": "8f63074a77ca4eeebdec648f48c42625"
     },
     {
       "binding": "SESSION",
-      "id": "f8163c67a46d4e41a0a58b114180966a"
+      "id": "f8163c67a46d4e41a0a58b114180966a",
+      "preview_id": "8f63074a77ca4eeebdec648f48c42625"
     }
   ],
   "r2_buckets": [
     {
       "binding": "R2",
-      "bucket_name": "australiafirst"
+      "bucket_name": "australiafirst",
+      "preview_bucket_name": "australiafirst"
     }
   ],
   "ai": {
