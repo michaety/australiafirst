@@ -8,7 +8,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const row = await DB.prepare(`
     SELECT r2_key FROM politician_photos WHERE politician_id = ? AND status = 'fetched'
-  `).bind(`oa_${id}`).first() as { r2_key: string } | null;
+  `).bind(id).first() as { r2_key: string } | null;
 
   if (!row?.r2_key) {
     return new Response('Not found', { status: 404 });
