@@ -41,6 +41,10 @@
   "ai": {
     "binding": "AI"
   },
+  "routes": [
+    { "pattern": "ontherecord.fyi/*", "zone_name": "ontherecord.fyi" },
+    { "pattern": "www.ontherecord.fyi/*", "zone_name": "ontherecord.fyi" }
+  ],
   "triggers": {
     "crons": [
       "0 2 * * *",

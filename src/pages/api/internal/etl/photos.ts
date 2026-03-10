@@ -23,7 +23,7 @@ export async function runPhotosETL(env: Env) {
 
     try {
       const res = await fetch(photoUrl, {
-        headers: { 'User-Agent': 'Australia First/1.0 accountability-platform' }
+        headers: { 'User-Agent': 'OnTheRecord/1.0 accountability-platform' }
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -1,192 +1,436 @@
 import type { APIRoute } from 'astro';
 import { jsonResponse, jsonError, requireInternalSecret } from '../../../../lib/api';
 
-export const prerender = false;
+// ── Data sources ──────────────────────────────────────────────────────────────
+// Senate: structured JSON API (discovered from the React SPA env.js)
+const PBS_API   = 'https://pbs-apim-aqcdgxhvaug7f8em.z01.azurefd.net/api';
+// House: individual PDF links scraped from the register page
+const APH_BASE  = 'https://www.aph.gov.au';
+const REG_PAGE  = `${APH_BASE}/Senators_and_Members/Members/Register`;
 
-const FITS_SEARCH_URL = 'https://www.transparency.ag.gov.au/search';
+const AI_MODEL = '@cf/meta/llama-3.1-8b-instruct';
 
-const FIVE_EYES = new Set(['australia', 'united states', 'united kingdom', 'canada', 'new zealand',
-  'usa', 'us', 'uk', 'nz', 'au', 'gb']);
-const CRITICAL_COUNTRIES = new Set(['china', 'russia', 'iran', 'north korea', 'dprk',
-  'peoples republic of china', 'prc', 'russian federation']);
+// ── Risk helpers ──────────────────────────────────────────────────────────────
+const FIVE_EYES = new Set([
+  'australia', 'united states', 'united kingdom', 'canada', 'new zealand',
+  'usa', 'us', 'uk', 'nz', 'au', 'gb',
+]);
+const CRITICAL = new Set([
+  'china', 'russia', 'iran', 'north korea', 'dprk',
+  'peoples republic of china', 'prc', 'russian federation',
+  'belarus', 'venezuela', 'cuba', 'myanmar',
+]);
 
-function assessRisk(country: string | null): 'low' | 'medium' | 'high' | 'critical' {
+function assessRisk(country: string | null | undefined): 'low' | 'medium' | 'high' | 'critical' {
   if (!country) return 'medium';
   const c = country.toLowerCase().trim();
   if (c === 'australia') return 'low';
-  if (CRITICAL_COUNTRIES.has(c)) return 'critical';
+  if (CRITICAL.has(c)) return 'critical';
   if (FIVE_EYES.has(c)) return 'medium';
   return 'high';
 }
 
-function mapRelationshipType(raw: string): string {
-  const lower = raw.toLowerCase();
-  if (lower.includes('donat') || lower.includes('fund') || lower.includes('financ')) return 'donation';
-  if (lower.includes('director') || lower.includes('board') || lower.includes('officer')) return 'directorship';
-  if (lower.includes('travel') || lower.includes('trip') || lower.includes('visit')) return 'travel';
-  if (lower.includes('lobby') || lower.includes('represent') || lower.includes('advocacy')) return 'lobbying';
-  if (lower.includes('member') || lower.includes('associat') || lower.includes('affiliat')) return 'membership';
-  return 'lobbying'; // default
-}
-
-function hashForeignTie(parts: string[]): string {
-  let hash = 0;
+function hashTie(parts: string[]): string {
+  let h = 0;
   const str = parts.join('|');
-  for (let i = 0; i < str.length; i++) {
-    const chr = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + chr;
-    hash |= 0;
+  for (let i = 0; i < str.length; i++) { h = ((h << 5) - h) + str.charCodeAt(i); h |= 0; }
+  return 'aph_' + Math.abs(h).toString(36);
+}
+
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+
+function stripHtml(s: string) { return s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+// ── Name helpers ──────────────────────────────────────────────────────────────
+// Extracts the last word as surname from "Firstname Surname" format
+function surname(fullName: string): string {
+  return fullName.trim().split(/\s+/).at(-1) ?? fullName.trim();
+}
+
+// Senate API returns "Surname, Firstname" – normalise to "Firstname Surname"
+function normaliseApiName(apiName: string): string {
+  const [sur, ...given] = apiName.split(',');
+  return `${given.join(',').trim()} ${sur.trim()}`.trim();
+}
+
+// ── Lightweight JS PDF text extractor ────────────────────────────────────────
+// Works for text-embedded (non-scanned) PDFs.
+function extractPdfText(buf: ArrayBuffer): string {
+  const raw = new TextDecoder('latin1').decode(buf);
+  const parts: string[] = [];
+
+  // Extract text from BT...ET blocks (PDF content streams)
+  const btEt = /BT([\s\S]*?)ET/g;
+  let m: RegExpExecArray | null;
+  while ((m = btEt.exec(raw)) !== null) {
+    const block = m[1];
+    // Tj / ' / " operators contain parenthesised strings
+    const tjPat = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|'|")/g;
+    let t: RegExpExecArray | null;
+    while ((t = tjPat.exec(block)) !== null) {
+      parts.push(
+        t[1]
+          .replace(/\\(\d{3})/g, (_, o) => String.fromCharCode(parseInt(o, 8)))
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\r')
+          .replace(/\\t/g, '\t')
+          .replace(/\\\\/g, '\\')
+          .replace(/\\\(/g, '(')
+          .replace(/\\\)/g, ')'),
+      );
+    }
+    // TJ arrays contain alternating strings and kerning numbers
+    const tjArr = /\[([^\]]+)\]\s*TJ/g;
+    let a: RegExpExecArray | null;
+    while ((a = tjArr.exec(block)) !== null) {
+      const pieces = a[1].match(/\(([^)\\]*(?:\\.[^)\\]*)*)\)/g) ?? [];
+      for (const p of pieces) parts.push(p.slice(1, -1));
+    }
   }
-  return 'fits_' + Math.abs(hash).toString(36);
+
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
-function extractTextContent(html: string): string {
-  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+// ── Workers AI: extract foreign ties from free text ───────────────────────────
+interface AiForeignTie {
+  entity_name: string;
+  entity_country: string | null;
+  relationship_type: 'directorship' | 'travel' | 'donation' | 'membership' | 'investment' | 'lobbying';
+  description: string;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+async function aiExtractForeignTies(
+  env: Env, politicianName: string, text: string,
+): Promise<AiForeignTie[]> {
+  const prompt = `Analyze this Australian politician's register of interests for ${politicianName} and extract ONLY foreign ties.
+
+A "foreign tie" is:
+- Directorship or role in a foreign (non-Australian) company or entity
+- Travel or hospitality funded by a foreign government, state entity, or foreign-based organisation
+- Gifts from foreign entities or foreign nationals
+- Investments in companies listed on foreign (non-ASX) stock exchanges
+- Memberships in foreign organisations
+- Income from foreign sources
+
+Register text:
+---
+${text.slice(0, 5000)}
+---
+
+Return ONLY a JSON array of objects with these fields:
+  entity_name: string (name of the foreign entity or country)
+  entity_country: string or null (country of the entity, null if unknown)
+  relationship_type: one of "directorship" | "travel" | "donation" | "membership" | "investment" | "lobbying"
+  description: string (1 sentence describing the tie)
+
+Return [] if no foreign ties are found. No other text outside the JSON array.`;
+
+  try {
+    const result = await (env.AI as any).run(AI_MODEL, {
+      messages: [
+        { role: 'system', content: 'You extract structured data from Australian parliamentary interest registers. Return only valid JSON arrays.' },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 1024,
+    });
+
+    const raw: string = result?.response ?? '';
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const candidate = fenced ? fenced[1].trim() : raw.trim();
+    const start = candidate.indexOf('[');
+    const end   = candidate.lastIndexOf(']');
+    if (start === -1 || end === -1) return [];
+    const parsed = JSON.parse(candidate.slice(start, end + 1));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
+// ── Senate ETL via PBS JSON API ───────────────────────────────────────────────
+interface SenateStatement {
+  cdapId: string; name: string; senatorParty: string; state: string;
+  id: string; lodgmentDate: string;
+}
+interface SenateStatementDetail {
+  senatorInterestStatement: { senatorName: string; lodgementDate: string };
+  registeredDirectorshipsOfCompanies: { interests: Array<{ nameOfCompany?: string; companyName?: string; countryOfIncorporation?: string }> };
+  sponsoredTravelOrHospitality: { interests: Array<{ detailOfTravelHospitality?: string }> };
+  gifts: { interests: Array<{ detailOfGifts?: string }> };
+  otherInterest: { interests: Array<{ nameOfInterest?: string; details?: string }> };
+  investments: { interests: Array<{ nameOfInvestment?: string; countryOfInvestment?: string; details?: string }> };
+  shareHoldings: { interests: Array<{ nameOfCompany?: string; countryOfCompany?: string }> };
+}
+
+async function processSenator(
+  env: Env, db: D1Database, politician: { id: string; name: string }, cdapId: string,
+): Promise<number> {
+  const res = await fetch(`${PBS_API}/getSenatorStatement?cdapid=${cdapId}`, {
+    headers: { 'User-Agent': 'OnTheRecord/1.0' },
+  });
+  if (!res.ok) return 0;
+
+  const data = await res.json() as SenateStatementDetail;
+  const sourceUrl = `${PBS_API}/getSenatorStatement?cdapid=${cdapId}`;
+  let count = 0;
+
+  // Build a text blob from all free-text fields for AI analysis
+  const textParts: string[] = [];
+
+  // Directorships — parse directly if country field present; else collect for AI
+  for (const item of data.registeredDirectorshipsOfCompanies?.interests ?? []) {
+    const name = item.nameOfCompany ?? item.companyName ?? '';
+    if (!name) continue;
+    const country = (item.countryOfIncorporation ?? null) as string | null;
+    // Only flag non-Australian directorships outright; let AI handle ambiguous ones
+    if (country && country.toLowerCase() !== 'australia') {
+      const id = hashTie([politician.id, name, country, 'directorship']);
+      await db.prepare(`
+        INSERT INTO foreign_ties (id, politician_id, entity_name, entity_country, relationship_type, risk_rating, description, source_url)
+        VALUES (?, ?, ?, ?, 'directorship', ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET entity_country=excluded.entity_country, risk_rating=excluded.risk_rating
+      `).bind(id, politician.id, name, country, assessRisk(country), `Directorship: ${name} (${country})`, sourceUrl).run();
+      count++;
+    } else {
+      textParts.push(`Directorship: ${name}${country ? ` (${country})` : ''}`);
+    }
+  }
+
+  // Sponsored travel — always send to AI (free text, high value signal)
+  for (const item of data.sponsoredTravelOrHospitality?.interests ?? []) {
+    const detail = item.detailOfTravelHospitality ?? '';
+    if (detail) textParts.push(`Sponsored travel: ${detail}`);
+  }
+
+  // Gifts
+  for (const item of data.gifts?.interests ?? []) {
+    const detail = item.detailOfGifts ?? '';
+    if (detail) textParts.push(`Gift: ${detail}`);
+  }
+
+  // Share holdings
+  for (const item of data.shareHoldings?.interests ?? []) {
+    const name = item.nameOfCompany ?? '';
+    const country = item.countryOfCompany ?? null;
+    if (name && country && country.toLowerCase() !== 'australia') {
+      textParts.push(`Share holding: ${name} (${country})`);
+    }
+  }
+
+  // Investments
+  for (const item of data.investments?.interests ?? []) {
+    const name = item.nameOfInvestment ?? item.details ?? '';
+    const country = item.countryOfInvestment ?? null;
+    if (name) textParts.push(`Investment: ${name}${country ? ` (${country})` : ''}`);
+  }
+
+  // Other interests
+  for (const item of data.otherInterest?.interests ?? []) {
+    const detail = item.nameOfInterest ?? item.details ?? '';
+    if (detail) textParts.push(`Other interest: ${detail}`);
+  }
+
+  if (textParts.length > 0) {
+    const ties = await aiExtractForeignTies(env, politician.name, textParts.join('\n'));
+    for (const tie of ties) {
+      if (!tie.entity_name || tie.entity_name.length < 2) continue;
+      const id = hashTie([politician.id, tie.entity_name, tie.entity_country ?? '', tie.relationship_type]);
+      await db.prepare(`
+        INSERT INTO foreign_ties (id, politician_id, entity_name, entity_country, relationship_type, risk_rating, description, source_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          entity_country    = excluded.entity_country,
+          relationship_type = excluded.relationship_type,
+          risk_rating       = excluded.risk_rating,
+          description       = excluded.description
+      `).bind(
+        id, politician.id, tie.entity_name, tie.entity_country ?? null,
+        tie.relationship_type, assessRisk(tie.entity_country),
+        tie.description ?? null, sourceUrl,
+      ).run();
+      count++;
+    }
+  }
+
+  return count;
+}
+
+// ── House ETL via APH PDF register ───────────────────────────────────────────
+// Build surname → PDF URL map from the register page.
+// Returns [map, debugInfo] so the caller can log diagnostics.
+async function fetchMemberPdfMap(): Promise<{ map: Map<string, string>; total: number; samples: string[] }> {
+  const res = await fetch(REG_PAGE, { headers: { 'User-Agent': 'OnTheRecord/1.0 accountability-platform', 'Accept': 'text/html' } });
+  if (!res.ok) {
+    console.error(`fetchMemberPdfMap: HTTP ${res.status} from ${REG_PAGE}`);
+    return { map: new Map(), total: 0, samples: [] };
+  }
+  const html = await res.text();
+
+  const map = new Map<string, string>();
+  // Match both single- and double-quoted hrefs, full https URL or absolute path
+  // e.g. href="/-/media/.../48p/AB/Albanese_48P.pdf"
+  //   or href='https://www.aph.gov.au/-/media/.../48p/AB/Albanese_48P.pdf'
+  const re = /href=["']([^"']*\/48p\/[A-Z]{2}\/([A-Za-z][A-Za-z0-9\-]*)_48P\.pdf)["']/gi;
+  let m: RegExpExecArray | null;
+  const samples: string[] = [];
+
+  while ((m = re.exec(html)) !== null) {
+    let path = m[1];
+    const rawSurname = m[2]; // e.g. "Albanese", "ChesterD"
+
+    // Ensure absolute URL
+    if (path.startsWith('/')) path = `${APH_BASE}${path}`;
+
+    // Normalise: strip trailing single uppercase letter used for disambiguation (e.g. "ChesterD" → "Chester")
+    const cleanSurname = rawSurname.replace(/[A-Z]$/, '');
+
+    map.set(rawSurname.toLowerCase(), path);        // raw key  e.g. "chesterd"
+    map.set(cleanSurname.toLowerCase(), path);      // clean key e.g. "chester"
+
+    if (samples.length < 5) samples.push(`${rawSurname} → ${path}`);
+  }
+
+  return { map, total: map.size, samples };
+}
+
+async function processMember(
+  env: Env, db: D1Database,
+  politician: { id: string; name: string }, pdfUrl: string,
+): Promise<number> {
+  const res = await fetch(pdfUrl, { headers: { 'User-Agent': 'OnTheRecord/1.0' } });
+  if (!res.ok) return 0;
+
+  const buf = await res.arrayBuffer();
+  const text = extractPdfText(buf);
+  if (text.length < 100) {
+    // PDF likely scanned — skip (would need OCR)
+    console.log(`  ${politician.name}: scanned PDF, skipping`);
+    return 0;
+  }
+
+  const ties = await aiExtractForeignTies(env, politician.name, text);
+  let count = 0;
+
+  for (const tie of ties) {
+    if (!tie.entity_name || tie.entity_name.length < 2) continue;
+    const id = hashTie([politician.id, tie.entity_name, tie.entity_country ?? '', tie.relationship_type]);
+    await db.prepare(`
+      INSERT INTO foreign_ties (id, politician_id, entity_name, entity_country, relationship_type, risk_rating, description, source_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        entity_country    = excluded.entity_country,
+        relationship_type = excluded.relationship_type,
+        risk_rating       = excluded.risk_rating,
+        description       = excluded.description
+    `).bind(
+      id, politician.id, tie.entity_name, tie.entity_country ?? null,
+      tie.relationship_type, assessRisk(tie.entity_country),
+      tie.description ?? null, pdfUrl,
+    ).run();
+    count++;
+  }
+
+  return count;
+}
+
+// ══ MAIN ETL ═════════════════════════════════════════════════════════════════
 export async function runForeignTiesETL(env: Env) {
-  const { DB } = env;
+  const db = env.DB;
 
-  const politicians = await DB.prepare(
-    `SELECT id, name FROM politicians`
+  const { results: politicians } = await db.prepare(
+    "SELECT id, name FROM politicians ORDER BY name",
   ).all<{ id: string; name: string }>();
 
-  let totalProcessed = 0;
-  let totalMatched = 0;
-  let totalUnmatched = 0;
-  let totalTies = 0;
+  // ── 1. Build Senate name→cdapId map ──────────────────────────────────────
+  const senateRes = await fetch(`${PBS_API}/queryStatements?pageSize=200&pageNumber=1`, {
+    headers: { 'User-Agent': 'OnTheRecord/1.0 accountability-platform' },
+  });
+  const senateData = senateRes.ok
+    ? (await senateRes.json() as { statementOfRegisterableInterests: SenateStatement[] })
+    : { statementOfRegisterableInterests: [] };
 
-  for (const politician of politicians.results) {
-    totalProcessed++;
+  // Index by normalised surname (lowercase) → cdapId
+  // Senate API name format: "Surname, Firstname" → normalise to "Firstname Surname"
+  const senateBySurname = new Map<string, string>();
+  for (const s of senateData.statementOfRegisterableInterests) {
+    const normName = normaliseApiName(s.name);   // "Waters, Larissa" → "Larissa Waters"
+    const sur = surname(normName).toLowerCase(); // "waters"
+    senateBySurname.set(sur, s.cdapId);
+    // Also store by full normalised name (lowercase) for direct lookup
+    senateBySurname.set(normName.toLowerCase(), s.cdapId);
+  }
 
-    if (totalProcessed > 1) await sleep(1000);
+  console.log(`Senate index: ${senateData.statementOfRegisterableInterests.length} senators, ${senateBySurname.size} index entries`);
+  // Debug: first 5 senate surnames in the map
+  const senateSample = [...senateBySurname.entries()].slice(0, 5).map(([k, v]) => `${k}→${v}`);
+  console.log(`Senate sample: ${senateSample.join(', ')}`);
 
-    const searchName = encodeURIComponent(politician.name);
-    const searchUrl = `${FITS_SEARCH_URL}?name=${searchName}`;
+  // ── 2. Build House surname→PDF URL map ────────────────────────────────────
+  const { map: memberPdfMap, total: pdfTotal, samples: pdfSamples } = await fetchMemberPdfMap();
+  console.log(`PDF map: ${pdfTotal} entries from ${REG_PAGE}`);
+  console.log(`PDF samples: ${pdfSamples.join(' | ')}`);
 
-    let html: string;
-    try {
-      const res = await fetch(searchUrl, {
-        headers: {
-          'User-Agent': 'AustraliaFirst/1.0 accountability-platform',
-          'Accept': 'text/html',
-        },
-      });
+  // ── 3. Process each politician ─────────────────────────────────────────────
+  // Route by OA member ID: senators have 6-digit IDs in the 100xxx range
+  let totalSenate = 0, totalHouse = 0, totalTies = 0, skipped = 0;
 
-      if (!res.ok) {
-        console.error(`FITS search failed for ${politician.name}: ${res.status}`);
-        totalUnmatched++;
-        continue;
+  // Debug: log first 5 politician surnames and what they'd look up
+  const polSample = politicians.slice(0, 5).map(p => {
+    const sur = surname(p.name).toLowerCase();
+    const oaNum = parseInt(p.id.replace('oa_', ''), 10);
+    const isSenate = oaNum >= 100000;
+    const hit = isSenate ? (senateBySurname.has(sur) ? 'senate✓' : 'senate✗') : (memberPdfMap.has(sur) ? 'pdf✓' : 'pdf✗');
+    return `${p.name}(${sur})[${hit}]`;
+  });
+  console.log(`Politician sample: ${polSample.join(', ')}`);
+
+  for (const pol of politicians) {
+    const sur = surname(pol.name).toLowerCase();
+    const oaNum = parseInt(pol.id.replace('oa_', ''), 10);
+    // Senate: OA member IDs ≥ 100000 (6-digit 100xxx range)
+    const isSenate = oaNum >= 100000;
+
+    if (isSenate) {
+      const cdapId = senateBySurname.get(sur) ?? senateBySurname.get(pol.name.toLowerCase());
+      if (cdapId) {
+        try {
+          const n = await processSenator(env, db, pol, cdapId);
+          totalTies += n;
+          totalSenate++;
+          console.log(`Senate ${pol.name}: ${n} ties`);
+        } catch (err) {
+          console.error(`Senate ${pol.name}:`, err);
+        }
+        await sleep(500);
+      } else {
+        skipped++;
+        console.log(`Senate ${pol.name} (${sur}): no PBS API match`);
       }
-
-      html = await res.text();
-    } catch (err) {
-      console.error(`FITS fetch error for ${politician.name}:`, err);
-      totalUnmatched++;
-      continue;
-    }
-
-    const tableRowPattern = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-    const rows: string[] = [];
-    let rowMatch: RegExpExecArray | null;
-    while ((rowMatch = tableRowPattern.exec(html)) !== null) {
-      rows.push(rowMatch[1]);
-    }
-
-    const cardPattern = /<div[^>]*class="[^"]*(?:result|registrant|entry)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-    let cardMatch: RegExpExecArray | null;
-    while ((cardMatch = cardPattern.exec(html)) !== null) {
-      rows.push(cardMatch[1]);
-    }
-
-    const noResults = html.toLowerCase().includes('no results') ||
-                      html.toLowerCase().includes('no matching') ||
-                      html.toLowerCase().includes('0 results');
-
-    if (rows.length <= 1 && noResults) {
-      totalUnmatched++;
-      continue;
-    }
-
-    let foundEntries = false;
-
-    for (const row of rows) {
-      const cellPattern = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-      const cells: string[] = [];
-      let cellMatch: RegExpExecArray | null;
-      while ((cellMatch = cellPattern.exec(row)) !== null) {
-        cells.push(extractTextContent(cellMatch[1]));
-      }
-
-      if (cells.length < 2) continue;
-      if (cells[0].toLowerCase().includes('name') && cells[1].toLowerCase().includes('country')) continue;
-
-      const entityName = cells[0] || '';
-      const entityCountry = cells.length > 1 ? cells[1] : null;
-      const activityType = cells.length > 2 ? cells[2] : '';
-      const dateStr = cells.length > 3 ? cells[3] : null;
-
-      if (!entityName || entityName.length < 2) continue;
-
-      foundEntries = true;
-      const riskRating = assessRisk(entityCountry);
-      const relationshipType = mapRelationshipType(activityType);
-      const id = hashForeignTie([politician.id, entityName, entityCountry || '', relationshipType]);
-
-      await DB.prepare(`
-        INSERT INTO foreign_ties (id, politician_id, entity_name, entity_country, relationship_type, risk_rating, description, date_start, source_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          entity_country = excluded.entity_country,
-          relationship_type = excluded.relationship_type,
-          risk_rating = excluded.risk_rating,
-          description = excluded.description
-      `).bind(
-        id, politician.id, entityName, entityCountry, relationshipType,
-        riskRating, activityType || null, dateStr || null, searchUrl,
-      ).run();
-
-      totalTies++;
-    }
-
-    if (!foundEntries && !noResults) {
-      const linkPattern = /<a[^>]*href="[^"]*registrant[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
-      let linkMatch: RegExpExecArray | null;
-      while ((linkMatch = linkPattern.exec(html)) !== null) {
-        const entityName = extractTextContent(linkMatch[1]);
-        if (!entityName || entityName.length < 2) continue;
-
-        foundEntries = true;
-        const id = hashForeignTie([politician.id, entityName, '', 'lobbying']);
-
-        await DB.prepare(`
-          INSERT INTO foreign_ties (id, politician_id, entity_name, entity_country, relationship_type, risk_rating, description, source_url)
-          VALUES (?, ?, ?, NULL, 'lobbying', 'medium', NULL, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            source_url = excluded.source_url
-        `).bind(id, politician.id, entityName, searchUrl).run();
-
-        totalTies++;
-      }
-    }
-
-    if (foundEntries) {
-      totalMatched++;
     } else {
-      totalUnmatched++;
+      const pdfUrl = memberPdfMap.get(sur);
+      if (pdfUrl) {
+        try {
+          const n = await processMember(env, db, pol, pdfUrl);
+          totalTies += n;
+          totalHouse++;
+          console.log(`House ${pol.name}: ${n} ties`);
+        } catch (err) {
+          console.error(`House ${pol.name}:`, err);
+        }
+        await sleep(800);
+      } else {
+        skipped++;
+        console.log(`House ${pol.name} (${sur}): no PDF match`);
+      }
     }
   }
 
   return {
     success: true,
-    processed: totalProcessed,
-    matched: totalMatched,
-    unmatched: totalUnmatched,
-    ties: totalTies,
+    senate: totalSenate,
+    house: totalHouse,
+    skipped,
+    totalForeignTies: totalTies,
   };
 }
 

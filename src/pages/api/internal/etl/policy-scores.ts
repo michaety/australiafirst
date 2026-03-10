@@ -92,7 +92,7 @@ export async function runPolicyScoresETL(env: Env) {
   // Fetch people list from TVFY
   const peopleUrl = `${TVFY_BASE}/people.json?key=${encodeURIComponent(apiKey)}`;
   const peopleRes = await fetch(peopleUrl, {
-    headers: { 'User-Agent': 'AustraliaFirst/1.0 accountability-platform' },
+    headers: { 'User-Agent': 'OnTheRecord/1.0 accountability-platform' },
   });
 
   if (!peopleRes.ok) {
@@ -151,7 +151,7 @@ export async function runPolicyScoresETL(env: Env) {
     let detail: TVFYPersonDetail;
     try {
       const detailRes = await fetch(detailUrl, {
-        headers: { 'User-Agent': 'AustraliaFirst/1.0 accountability-platform' },
+        headers: { 'User-Agent': 'OnTheRecord/1.0 accountability-platform' },
       });
       if (!detailRes.ok) {
         errors.push(`Detail fetch failed for ${fullName} (${person.id}): ${detailRes.status}`);

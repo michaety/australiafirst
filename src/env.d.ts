@@ -1,4 +1,4 @@
-// Cloudflare bindings for Australia First Accountability Platform
+// Cloudflare bindings for On The Record Accountability Platform
 interface Env {
   DB: D1Database;
   KV: KVNamespace;

@@ -103,7 +103,7 @@ export async function runDivisionsETL(env: Env) {
     for (let page = startPage; page < startPage + MAX_PAGES_PER_RUN; page++) {
       const listUrl = `${TVFY_BASE}/divisions.json?key=${encodeURIComponent(apiKey)}&house=${house}&sort=date&per_page=${DIVISIONS_PER_PAGE}&page=${page}`;
       const listRes = await fetch(listUrl, {
-        headers: { 'User-Agent': 'AustraliaFirst/1.0 accountability-platform' },
+        headers: { 'User-Agent': 'OnTheRecord/1.0 accountability-platform' },
       });
 
       if (!listRes.ok) {
@@ -174,7 +174,7 @@ export async function runDivisionsETL(env: Env) {
   for (const div of pending.results) {
     const detailUrl = `${TVFY_BASE}/divisions/${div.external_id}.json?key=${encodeURIComponent(apiKey)}`;
     const detailRes = await fetch(detailUrl, {
-      headers: { 'User-Agent': 'AustraliaFirst/1.0 accountability-platform' },
+      headers: { 'User-Agent': 'OnTheRecord/1.0 accountability-platform' },
     });
 
     if (!detailRes.ok) {

@@ -8,12 +8,12 @@ const { id } = Astro.params;
 <!doctype html>
 <html lang="en">
   <head>
-    <BaseHead title="Politician Profile | Australia First" description="Accountability profile for Australian federal politician" />
+    <BaseHead title="Politician Profile | On The Record" description="Accountability profile for Australian federal politician" />
   </head>
   <body style="margin:0;padding:0;background:#050505;color:#e8e8e8;font-family:'Courier New',monospace;">
     <div id="page-wrap" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px;gap:32px;box-sizing:border-box;">
       <div style="text-align:center;max-width:680px;width:100%;">
-        <div style="color:#c8001a;font-size:11px;letter-spacing:6px;margin-bottom:8px;">&#9670; AUSTRALIA FIRST &#9670;</div>
+        <div style="color:#c8001a;font-size:11px;letter-spacing:6px;margin-bottom:8px;">&#9670; ON THE RECORD &#9670;</div>
         <div style="color:#f0f0f0;font-size:28px;font-weight:900;letter-spacing:-1px;margin-bottom:8px;">PUBLIC ACCOUNTABILITY REGISTER</div>
         <div style="color:#444;font-size:12px;line-height:1.6;">Every politician. Every donor. Every broken promise. Every foreign tie.<br>All public data. No spin.</div>
       </div>
@@ -232,7 +232,7 @@ const { id } = Astro.params;
           card.innerHTML =
             // Red header
             '<div style="background:#c8001a;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;">'
-              + '<span style="color:#fff;font-size:11px;font-weight:900;letter-spacing:3px;">AUSTRALIA FIRST — PUBLIC RECORD</span>'
+              + '<span style="color:#fff;font-size:11px;font-weight:900;letter-spacing:3px;">ON THE RECORD — PUBLIC RECORD</span>'
               + '<span style="color:rgba(255,255,255,0.7);font-size:10px;letter-spacing:1px;">CASE #' + esc(caseNum) + '</span>'
             + '</div>'
 
@@ -323,14 +323,14 @@ const { id } = Astro.params;
             // Footer
             + '<div style="border-top:1px solid #1a1a1a;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:#080808;">'
               + '<span style="color:#2a2a2a;font-size:10px;letter-spacing:1px;">ALL DATA SOURCED FROM PUBLIC RECORDS</span>'
-              + '<span style="color:#c8001a;font-size:10px;letter-spacing:2px;font-weight:900;">AUSTRALIAFIRST.XYZ</span>'
+              + '<span style="color:#c8001a;font-size:10px;letter-spacing:2px;font-weight:900;">ONTHERECORD.FYI</span>'
             + '</div>';
 
           tabNames.forEach(function(t) {
             document.getElementById('tab-btn-' + t).addEventListener('click', function() { switchTab(t); });
           });
 
-          document.title = p.name.toUpperCase() + ' | Australia First';
+          document.title = p.name.toUpperCase() + ' | On The Record';
 
         } catch (e) {
           card.innerHTML = '<div style="text-align:center;padding:60px;color:#333;font-size:12px;">Failed to load profile.</div>';
