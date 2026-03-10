@@ -75,7 +75,7 @@ const { id } = Astro.params;
         return '#666';
       }
 
-      var tabNames = ['actions', 'donors', 'promises', 'foreign'];
+      var tabNames = ['actions', 'donors', 'promises', 'foreign', 'policy'];
 
       function switchTab(activeTab) {
         tabNames.forEach(function(t) {
@@ -99,16 +99,19 @@ const { id } = Astro.params;
         var card = document.getElementById('mugshot-card');
         try {
           var res = await fetch('/api/v1/politicians/' + politicianId + '.json');
+          var policyRes = await fetch('/api/v1/politicians/' + politicianId + '/policy-scores.json');
           if (res.status === 404) {
             card.innerHTML = '<div style="text-align:center;padding:60px;color:#333;font-size:12px;">Politician not found.</div>';
             return;
           }
           var data = await res.json();
+          var policyData = policyRes.ok ? await policyRes.json() : { policyScores: [] };
           var p = data.politician;
           var actions = data.actions || [];
           var donations = data.donations || [];
           var promises = data.promises || [];
           var foreignTies = data.foreignTies || [];
+          var policyScores = policyData.policyScores || [];
 
           var caseNum = 'AF-' + (p.id || '').replace(/[^0-9]/g, '').slice(0, 6);
           var chamberLabel = p.chamber === 'senate' ? 'Senator' : 'Member of Parliament';
@@ -192,6 +195,38 @@ const { id } = Astro.params;
             });
           }
 
+          // Build policy scores HTML
+          var policyHtml = '';
+          if (policyScores.length === 0) {
+            policyHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No policy voting data on record.</div>';
+          } else {
+            policyScores.forEach(function(ps) {
+              var pct = ps.agreement_pct != null ? Math.round(ps.agreement_pct) : null;
+              var barColor = pct == null ? '#333'
+                : pct >= 60 ? '#2bff6e'
+                : pct <= 40 ? '#c8001a'
+                : '#ff8c00';
+              var label = pct == null ? 'N/A' : pct + '%';
+              var controversy = pct != null ? Math.round(50 - Math.abs(pct - 50)) : 0;
+              policyHtml += '<div style="padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:8px;">'
+                + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">'
+                  + '<div style="color:#ccc;font-size:12px;flex:1;padding-right:12px;">' + esc(ps.policy_name) + '</div>'
+                  + '<div style="color:' + barColor + ';font-size:13px;font-weight:900;min-width:40px;text-align:right;">' + label + '</div>'
+                + '</div>'
+                + (ps.policy_description ? '<div style="color:#555;font-size:10px;margin-bottom:6px;">' + esc(ps.policy_description) + '</div>' : '')
+                + '<div style="height:4px;background:#1a1a1a;border-radius:2px;overflow:hidden;">'
+                  + (pct != null ? '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:2px;"></div>' : '')
+                + '</div>'
+                + '<div style="display:flex;justify-content:space-between;margin-top:3px;">'
+                  + '<span style="color:#333;font-size:9px;">AGAINST</span>'
+                  + (controversy > 0 ? '<span style="color:#444;font-size:9px;letter-spacing:1px;">CONTROVERSY ' + controversy + '%</span>' : '')
+                  + '<span style="color:#333;font-size:9px;">IN FAVOUR</span>'
+                + '</div>'
+              + '</div>';
+            });
+            policyHtml += '<div style="color:#333;font-size:10px;margin-top:4px;">Source: They Vote For You — theyvoteforyou.org.au · Sorted by most controversial first</div>';
+          }
+
           var tabBtnBase = 'flex:1;padding:10px 4px;border:none;font-size:9px;font-weight:900;letter-spacing:1px;cursor:pointer;font-family:\'Courier New\',monospace;border-bottom:2px solid transparent;';
 
           card.innerHTML =
@@ -256,6 +291,7 @@ const { id } = Astro.params;
               + '<button id="tab-btn-donors" style="' + tabBtnBase + 'background:transparent;color:#444;">FOLLOW THE MONEY</button>'
               + '<button id="tab-btn-promises" style="' + tabBtnBase + 'background:transparent;color:#444;">THEY PROMISED</button>'
               + '<button id="tab-btn-foreign" style="' + tabBtnBase + 'background:transparent;color:#444;">FOREIGN TIES</button>'
+              + '<button id="tab-btn-policy" style="' + tabBtnBase + 'background:transparent;color:#444;">POLICY</button>'
             + '</div>'
 
             // Panels
@@ -277,6 +313,11 @@ const { id } = Astro.params;
             + '<div id="panel-foreign" style="display:none;padding:16px;min-height:200px;">'
               + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">FOREIGN ENTITY ASSOCIATIONS & RISK ASSESSMENT</div>'
               + foreignHtml
+            + '</div>'
+
+            + '<div id="panel-policy" style="display:none;padding:16px;min-height:200px;">'
+              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">HOW THEY VOTE ON POLICIES — AGREEMENT % (SOURCE: THEY VOTE FOR YOU)</div>'
+              + policyHtml
             + '</div>'
 
             // Footer

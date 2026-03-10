@@ -69,14 +69,35 @@ export interface ForeignTie {
 
 export async function getPoliticians(
   db: D1Database,
-  filters: { chamber?: string; party?: string; search?: string } = {},
+  filters: { chamber?: string; party?: string; search?: string; sort?: string } = {},
 ): Promise<Politician[]> {
+  const sort = filters.sort ?? 'name';
+
+  let selectExtra = '';
+  let joinExtra = '';
+  let orderBy = 'p.name ASC';
+
+  if (sort === 'donors') {
+    joinExtra = `LEFT JOIN (SELECT politician_id, COUNT(*) AS donor_count FROM donations GROUP BY politician_id) _d ON _d.politician_id = p.id`;
+    selectExtra = ', COALESCE(_d.donor_count, 0) AS _sort_val';
+    orderBy = '_sort_val DESC, p.name ASC';
+  } else if (sort === 'actions') {
+    joinExtra = `LEFT JOIN (SELECT politician_id, COUNT(*) AS action_count FROM actions GROUP BY politician_id) _a ON _a.politician_id = p.id`;
+    selectExtra = ', COALESCE(_a.action_count, 0) AS _sort_val';
+    orderBy = '_sort_val DESC, p.name ASC';
+  } else if (sort === 'controversial') {
+    joinExtra = `LEFT JOIN (SELECT politician_id, AVG(agreement_pct) AS avg_agreement FROM politician_policy_scores GROUP BY politician_id) _ps ON _ps.politician_id = p.id`;
+    selectExtra = ', _ps.avg_agreement AS _avg_agreement';
+    orderBy = 'CASE WHEN _ps.avg_agreement IS NULL THEN 1 ELSE 0 END ASC, ABS(_ps.avg_agreement - 50) ASC, p.name ASC';
+  }
+
   let query = `
     SELECT p.id, p.name, p.chamber, p.party_id, p.electorate, p.jurisdiction,
            p.photo_url, p.mugshot_r2_key, p.bio, p.website, p.social_media,
-           pt.name AS party_name, pt.abbreviation AS party_abbreviation
+           pt.name AS party_name, pt.abbreviation AS party_abbreviation${selectExtra}
     FROM politicians p
     LEFT JOIN parties pt ON pt.id = p.party_id
+    ${joinExtra}
     WHERE 1=1
   `;
   const params: unknown[] = [];
@@ -92,7 +113,7 @@ export async function getPoliticians(
     query += ` AND (p.name LIKE ? OR p.electorate LIKE ?)`;
     params.push(`%${filters.search}%`, `%${filters.search}%`);
   }
-  query += ` ORDER BY p.name ASC`;
+  query += ` ORDER BY ${orderBy}`;
   const result = await db.prepare(query).bind(...params).all<Politician>();
   return result.results ?? [];
 }

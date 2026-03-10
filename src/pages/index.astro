@@ -198,6 +198,15 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
         <label for="filter-search">Search</label><br>
         <input type="text" id="filter-search" placeholder="Name or electorate..." />
       </div>
+      <div>
+        <label for="filter-sort">Sort</label><br>
+        <select id="filter-sort">
+          <option value="name">Name</option>
+          <option value="donors">Most Donors</option>
+          <option value="actions">Most Actions</option>
+          <option value="controversial">Most Controversial</option>
+        </select>
+      </div>
     </div>
 
     <div class="results-bar" id="results-count">Loading...</div>
@@ -211,7 +220,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
     </footer>
 
     <script>
-      let currentFilters = { chamber: '', party: '', q: '' };
+      let currentFilters = { chamber: '', party: '', q: '', sort: 'name' };
 
       async function loadPoliticians() {
         try {
@@ -219,6 +228,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
           if (currentFilters.chamber) params.set('chamber', currentFilters.chamber);
           if (currentFilters.party) params.set('party', currentFilters.party);
           if (currentFilters.q) params.set('q', currentFilters.q);
+          if (currentFilters.sort) params.set('sort', currentFilters.sort);
 
           const res = await fetch(`/api/v1/politicians.json?${params}`);
           const data = await res.json();
@@ -282,6 +292,10 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
       });
       document.getElementById('filter-search').addEventListener('input', e => {
         currentFilters.q = e.target.value;
+        applyFilters();
+      });
+      document.getElementById('filter-sort').addEventListener('change', e => {
+        currentFilters.sort = e.target.value;
         applyFilters();
       });
 

@@ -10,11 +10,12 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const chamber = url.searchParams.get('chamber') ?? undefined;
   const party = url.searchParams.get('party') ?? undefined;
   const search = url.searchParams.get('q') ?? undefined;
+  const sort = url.searchParams.get('sort') ?? undefined;
 
   try {
-    const cacheKey = `v1:politicians:${chamber ?? ''}:${party ?? ''}:${search ?? ''}`;
+    const cacheKey = `v1:politicians:${chamber ?? ''}:${party ?? ''}:${search ?? ''}:${sort ?? ''}`;
     const data = await withCache(KV, cacheKey, async () => {
-      const politicians = await getPoliticians(DB, { chamber, party, search });
+      const politicians = await getPoliticians(DB, { chamber, party, search, sort });
       return {
         updatedAt: new Date().toISOString(),
         count: politicians.length,
