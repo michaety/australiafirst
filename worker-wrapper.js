@@ -15,20 +15,30 @@ async function handleScheduled(event, env, ctx) {
     let endpoint = null;
     let description = '';
 
-    // Daily at 2:00 AM - Roster ETL
+    // Daily at 2:00 AM - Roster sync
     if (cron === '0 2 * * *') {
       endpoint = '/api/internal/etl/roster';
       description = 'Roster ETL';
     }
-    // Daily at 3:00 AM - Photo fetch
-    else if (cron === '0 3 * * *') {
-      endpoint = '/api/internal/photos/fetch';
-      description = 'Photo Fetch';
+    // Daily at 2:30 AM - Divisions + actions
+    else if (cron === '30 2 * * *') {
+      endpoint = '/api/internal/etl/divisions';
+      description = 'Divisions ETL';
     }
-    // Daily at 4:00 AM - Reserved for future use
+    // Daily at 3:00 AM - Donations
+    else if (cron === '0 3 * * *') {
+      endpoint = '/api/internal/etl/donations';
+      description = 'Donations ETL';
+    }
+    // Daily at 3:30 AM - Foreign ties
+    else if (cron === '30 3 * * *') {
+      endpoint = '/api/internal/etl/foreign-ties';
+      description = 'Foreign Ties ETL';
+    }
+    // Daily at 4:00 AM - Photos fetch
     else if (cron === '0 4 * * *') {
-      console.log('[CRON] 4AM slot reserved for future use');
-      return;
+      endpoint = '/api/internal/etl/photos';
+      description = 'Photos ETL';
     }
 
     if (endpoint) {

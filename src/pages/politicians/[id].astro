@@ -9,173 +9,20 @@ const { id } = Astro.params;
 <html lang="en">
   <head>
     <BaseHead title="Politician Profile | Australia First" description="Accountability profile for Australian federal politician" />
-    <style>
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #050505; color: #e8e8e8; font-family: 'Courier New', monospace; margin: 0; }
-      a { color: inherit; text-decoration: none; }
-      .page-wrap {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 40px 20px;
-        gap: 32px;
-      }
-      .site-header { text-align: center; max-width: 680px; width: 100%; }
-      .site-header .brand { color: #c8001a; font-size: 11px; letter-spacing: 6px; margin-bottom: 8px; }
-      .site-header .title { color: #f0f0f0; font-size: 28px; font-weight: 900; letter-spacing: -1px; margin-bottom: 8px; }
-      .site-header .subtitle { color: #444; font-size: 12px; line-height: 1.6; }
-
-      /* Card shell */
-      .card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 4px; overflow: hidden; max-width: 680px; width: 100%; }
-
-      /* Red header */
-      .card-header { background: #c8001a; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; }
-      .card-header .label { color: #fff; font-size: 11px; font-weight: 900; letter-spacing: 3px; }
-      .card-header .case { color: rgba(255,255,255,0.7); font-size: 10px; letter-spacing: 1px; }
-
-      /* Mugshot row */
-      .mugshot-row { display: flex; gap: 0; border-bottom: 1px solid #1e1e1e; }
-
-      /* Photo column */
-      .photo-col { position: relative; width: 200px; min-width: 200px; background: #111; overflow: hidden; }
-      .height-ruler {
-        position: absolute; right: 0; top: 0; bottom: 0; width: 28px;
-        background: #0a0a0a; border-left: 1px solid #222;
-        display: flex; flex-direction: column; justify-content: space-between;
-        padding: 8px 0; z-index: 2;
-      }
-      .height-ruler span { color: #444; font-size: 7px; text-align: center; border-bottom: 1px solid #1a1a1a; padding-bottom: 2px; }
-      .photo-frame { width: 172px; height: 220px; overflow: hidden; position: relative; background: #1a1a1a; }
-      .photo-frame img {
-        width: 100%; height: 100%; object-fit: cover; object-position: top;
-        filter: grayscale(30%) contrast(1.2) brightness(0.85); display: block;
-      }
-      .photo-frame .no-photo {
-        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-        color: #333; font-size: 11px; text-align: center; padding: 10px;
-      }
-      .photo-frame .vignette {
-        position: absolute; inset: 0;
-        background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
-        pointer-events: none;
-      }
-      .photo-frame .scanlines {
-        position: absolute; inset: 0;
-        background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
-        pointer-events: none;
-      }
-      .booking-strip { background: #0a0a0a; border-top: 1px solid #1e1e1e; padding: 8px; text-align: center; }
-      .booking-strip .lbl { color: #c8001a; font-size: 10px; letter-spacing: 2px; margin-bottom: 3px; }
-      .booking-strip .val { color: #666; font-size: 11px; }
-
-      /* Identity column */
-      .identity-col { flex: 1; padding: 20px; border-left: 1px solid #1a1a1a; display: flex; flex-direction: column; gap: 12px; }
-      .field-label { color: #444; font-size: 10px; letter-spacing: 3px; margin-bottom: 4px; }
-      .full-name { color: #f0f0f0; font-size: 22px; font-weight: 900; line-height: 1.1; letter-spacing: -0.5px; }
-      .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .info-grid .lbl { color: #444; font-size: 9px; letter-spacing: 2px; margin-bottom: 3px; }
-      .info-grid .val { color: #aaa; font-size: 12px; }
-      .info-grid .val.highlight { color: #c8001a; font-weight: 900; letter-spacing: 2px; }
-      .stat-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-      .stat-pill { background: #111; border: 1px solid #1e1e1e; border-radius: 2px; padding: 4px 10px; text-align: center; }
-      .stat-pill .n { color: #c8001a; font-size: 16px; font-weight: 900; }
-      .stat-pill .l { color: #444; font-size: 8px; letter-spacing: 1px; }
-
-      /* Tabs */
-      .tabs { display: flex; border-bottom: 1px solid #1a1a1a; background: #080808; }
-      .tabs button {
-        flex: 1; padding: 10px 4px; background: transparent; border: none;
-        border-bottom: 2px solid transparent; color: #444; font-size: 9px;
-        font-weight: 900; letter-spacing: 1px; cursor: pointer;
-        font-family: 'Courier New', monospace; transition: all 0.15s;
-      }
-      .tabs button:hover { color: #888; }
-      .tabs button.active { background: #111; border-bottom-color: #c8001a; color: #f0f0f0; }
-
-      /* Tab content */
-      .tab-panel { display: none; padding: 16px; min-height: 200px; }
-      .tab-panel.active { display: block; }
-      .section-label { color: #444; font-size: 9px; letter-spacing: 2px; margin-bottom: 8px; }
-      .empty-msg { color: #333; font-size: 12px; text-align: center; padding: 40px 0; }
-
-      /* Actions tab */
-      .action-row { display: flex; gap: 12px; align-items: flex-start; padding: 10px; background: #0d0d0d; border: 1px solid #1a1a1a; border-left: 3px solid #c8001a; margin-bottom: 8px; }
-      .action-row .num { color: #c8001a; font-size: 11px; font-weight: 900; min-width: 20px; }
-      .action-row .txt { color: #ccc; font-size: 12px; line-height: 1.5; }
-      .action-row .desc { color: #888; font-size: 11px; line-height: 1.4; margin-top: 4px; }
-      .action-row .meta { margin-top: 4px; }
-      .action-row .meta a, .action-row .meta span { font-size: 10px; color: #555; margin-right: 8px; }
-      .action-row .meta a { color: #4499ff; }
-
-      /* Donors tab */
-      .donor-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #0d0d0d; border: 1px solid #1a1a1a; margin-bottom: 8px; }
-      .donor-row .info { display: flex; gap: 10px; align-items: center; }
-      .donor-row .flag { font-size: 14px; }
-      .donor-row .name { color: #ccc; font-size: 12px; }
-      .donor-row .year { color: #444; font-size: 10px; }
-      .donor-row .amount { color: #c8001a; font-size: 14px; font-weight: 900; }
-      .donor-source { color: #333; font-size: 10px; margin-top: 4px; }
-
-      /* Promises tab */
-      .promise-row { padding: 12px; background: #0d0d0d; border: 1px solid #1a1a1a; margin-bottom: 10px; }
-      .promise-row.kept { border-left: 3px solid #2bff6e; }
-      .promise-row.broken { border-left: 3px solid #c8001a; }
-      .promise-row.partial { border-left: 3px solid #ff8c00; }
-      .promise-row.pending { border-left: 3px solid #666; }
-      .promise-row .quote { color: #888; font-size: 12px; font-style: italic; margin-bottom: 6px; }
-      .promise-row .verdict { display: flex; gap: 8px; align-items: flex-start; }
-      .promise-row .status-tag { font-size: 10px; font-weight: 900; letter-spacing: 1px; min-width: 60px; }
-      .promise-row .status-tag.kept { color: #2bff6e; }
-      .promise-row .status-tag.broken { color: #c8001a; }
-      .promise-row .status-tag.partial { color: #ff8c00; }
-      .promise-row .status-tag.pending { color: #666; }
-      .promise-row .reality { color: #aaa; font-size: 12px; }
-      .promise-row .meta { margin-top: 6px; }
-      .promise-row .meta a, .promise-row .meta span { font-size: 10px; color: #555; margin-right: 8px; }
-      .promise-row .meta a { color: #4499ff; }
-
-      /* Foreign ties tab */
-      .foreign-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #0d0d0d; border: 1px solid #1a1a1a; margin-bottom: 8px; }
-      .foreign-row .entity { color: #ccc; font-size: 12px; margin-bottom: 3px; }
-      .foreign-row .role { color: #555; font-size: 11px; }
-      .risk-badge { font-size: 10px; font-weight: 900; padding: 2px 7px; border-radius: 2px; letter-spacing: 1px; }
-      .risk-badge.high, .risk-badge.critical { background: #ff2b2b; color: #fff; }
-      .risk-badge.medium { background: #ff8c00; color: #000; }
-      .risk-badge.low { background: #2bff6e; color: #000; }
-
-      /* Footer */
-      .card-footer { border-top: 1px solid #1a1a1a; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; background: #080808; }
-      .card-footer .left { color: #2a2a2a; font-size: 10px; letter-spacing: 1px; }
-      .card-footer .right { color: #c8001a; font-size: 10px; letter-spacing: 2px; font-weight: 900; }
-
-      .page-sources { color: #222; font-size: 10px; text-align: center; max-width: 500px; line-height: 1.8; }
-      .loading-state { text-align: center; padding: 60px; color: #333; font-size: 12px; }
-
-      @media (max-width: 600px) {
-        .mugshot-row { flex-direction: column; }
-        .photo-col { width: 100%; min-width: unset; }
-        .photo-frame { width: 100%; height: 260px; }
-        .height-ruler { display: none; }
-        .identity-col { padding: 16px; }
-        .full-name { font-size: 18px; }
-        .page-wrap { padding: 20px 10px; }
-      }
-    </style>
   </head>
-  <body>
-    <div class="page-wrap">
-      <div class="site-header">
-        <div class="brand">&#9670; AUSTRALIA FIRST &#9670;</div>
-        <div class="title">PUBLIC ACCOUNTABILITY REGISTER</div>
-        <div class="subtitle">Every politician. Every donor. Every broken promise. Every foreign tie.<br>All public data. No spin.</div>
+  <body style="margin:0;padding:0;background:#050505;color:#e8e8e8;font-family:'Courier New',monospace;">
+    <div id="page-wrap" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px;gap:32px;box-sizing:border-box;">
+      <div style="text-align:center;max-width:680px;width:100%;">
+        <div style="color:#c8001a;font-size:11px;letter-spacing:6px;margin-bottom:8px;">&#9670; AUSTRALIA FIRST &#9670;</div>
+        <div style="color:#f0f0f0;font-size:28px;font-weight:900;letter-spacing:-1px;margin-bottom:8px;">PUBLIC ACCOUNTABILITY REGISTER</div>
+        <div style="color:#444;font-size:12px;line-height:1.6;">Every politician. Every donor. Every broken promise. Every foreign tie.<br>All public data. No spin.</div>
       </div>
 
-      <div class="card" id="mugshot-card">
-        <div class="loading-state">Loading profile...</div>
+      <div id="mugshot-card" style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;overflow:hidden;max-width:680px;width:100%;">
+        <div style="text-align:center;padding:60px;color:#333;font-size:12px;">Loading profile...</div>
       </div>
 
-      <div class="page-sources">
+      <div style="color:#222;font-size:10px;text-align:center;max-width:500px;line-height:1.8;">
         Data sources: Australian Electoral Commission &middot; OpenAustralia &middot; TheyVoteForYou &middot;
         Parliament of Australia &middot; ASIC &middot; Foreign Influence Transparency Scheme
       </div>
@@ -199,10 +46,6 @@ const { id } = Astro.params;
         return new Date(d).toLocaleDateString('en-AU', { year: 'numeric', month: 'short', day: 'numeric' });
       }
 
-      function riskClass(r) {
-        return (r || 'low').toLowerCase();
-      }
-
       function donorFlag(amountCents) {
         if (!amountCents) return '⚪';
         if (amountCents >= 10000000) return '🔴';
@@ -210,184 +53,242 @@ const { id } = Astro.params;
         return '🟢';
       }
 
+      function riskBadgeStyle(r) {
+        var level = (r || 'low').toLowerCase();
+        var base = 'font-size:10px;font-weight:900;padding:2px 7px;border-radius:2px;letter-spacing:1px;';
+        if (level === 'high' || level === 'critical') return base + 'background:#ff2b2b;color:#fff;';
+        if (level === 'medium') return base + 'background:#ff8c00;color:#000;';
+        return base + 'background:#2bff6e;color:#000;';
+      }
+
+      function promiseBorderColor(st) {
+        if (st === 'kept') return '#2bff6e';
+        if (st === 'broken') return '#c8001a';
+        if (st === 'partial') return '#ff8c00';
+        return '#666';
+      }
+
+      function promiseStatusColor(st) {
+        if (st === 'kept') return '#2bff6e';
+        if (st === 'broken') return '#c8001a';
+        if (st === 'partial') return '#ff8c00';
+        return '#666';
+      }
+
+      var tabNames = ['actions', 'donors', 'promises', 'foreign'];
+
+      function switchTab(activeTab) {
+        tabNames.forEach(function(t) {
+          var btn = document.getElementById('tab-btn-' + t);
+          var panel = document.getElementById('panel-' + t);
+          if (t === activeTab) {
+            btn.style.background = '#111';
+            btn.style.borderBottomColor = '#c8001a';
+            btn.style.color = '#f0f0f0';
+            panel.style.display = 'block';
+          } else {
+            btn.style.background = 'transparent';
+            btn.style.borderBottomColor = 'transparent';
+            btn.style.color = '#444';
+            panel.style.display = 'none';
+          }
+        });
+      }
+
       async function loadProfile() {
-        const card = document.getElementById('mugshot-card');
+        var card = document.getElementById('mugshot-card');
         try {
-          const res = await fetch(`/api/v1/politicians/${politicianId}.json`);
+          var res = await fetch('/api/v1/politicians/' + politicianId + '.json');
           if (res.status === 404) {
-            card.innerHTML = '<div class="loading-state">Politician not found.</div>';
+            card.innerHTML = '<div style="text-align:center;padding:60px;color:#333;font-size:12px;">Politician not found.</div>';
             return;
           }
-          const data = await res.json();
-          const { politician: p, actions, donations, promises, foreignTies } = data;
+          var data = await res.json();
+          var p = data.politician;
+          var actions = data.actions || [];
+          var donations = data.donations || [];
+          var promises = data.promises || [];
+          var foreignTies = data.foreignTies || [];
 
-          const caseNum = 'AF-' + (p.id || '').replace(/[^0-9]/g, '').slice(0, 6);
-          const chamberLabel = p.chamber === 'senate' ? 'Senator' : 'Member of Parliament';
-          const brokenCount = promises.filter(pr => pr.status === 'broken').length;
+          var caseNum = 'AF-' + (p.id || '').replace(/[^0-9]/g, '').slice(0, 6);
+          var chamberLabel = p.chamber === 'senate' ? 'Senator' : 'Member of Parliament';
+          var brokenCount = promises.filter(function(pr) { return pr.status === 'broken'; }).length;
 
-          const photoHtml = p.photoUrl
-            ? `<img src="${esc(p.photoUrl)}" alt="${esc(p.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          var photoImgHtml = p.photoUrl
+            ? '<img src="' + esc(p.photoUrl) + '" alt="' + esc(p.name) + '" style="width:100%;height:100%;object-fit:cover;object-position:top;filter:grayscale(85%) contrast(1.4) brightness(0.75) sepia(20%);display:block;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
             : '';
-          const noPhotoStyle = p.photoUrl ? 'display:none' : 'display:flex';
+          var noPhotoDisplay = p.photoUrl ? 'none' : 'flex';
 
-          card.innerHTML = `
-            <!-- Red header -->
-            <div class="card-header">
-              <span class="label">AUSTRALIA FIRST — PUBLIC RECORD</span>
-              <span class="case">CASE #${esc(caseNum)}</span>
-            </div>
+          // Build actions HTML
+          var actionsHtml = '';
+          if (actions.length === 0) {
+            actionsHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No documented actions on record.</div>';
+          } else {
+            actions.forEach(function(a, i) {
+              actionsHtml += '<div style="display:flex;gap:12px;align-items:flex-start;padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;border-left:3px solid #c8001a;margin-bottom:8px;">'
+                + '<span style="color:#c8001a;font-size:11px;font-weight:900;min-width:20px;">' + String(i + 1).padStart(2, '0') + '</span>'
+                + '<div>'
+                + '<div style="color:#ccc;font-size:12px;line-height:1.5;">' + esc(a.title) + '</div>'
+                + (a.description ? '<div style="color:#888;font-size:11px;line-height:1.4;margin-top:4px;">' + esc(a.description) + '</div>' : '')
+                + '<div style="margin-top:4px;">'
+                + (a.date ? '<span style="font-size:10px;color:#555;margin-right:8px;">' + formatDate(a.date) + '</span>' : '')
+                + (a.category ? '<span style="font-size:10px;color:#555;margin-right:8px;">' + esc(a.category) + '</span>' : '')
+                + (a.sourceUrl ? '<a href="' + esc(a.sourceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Source ↗</a>' : '')
+                + (a.evidenceUrl ? '<a href="' + esc(a.evidenceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Evidence ↗</a>' : '')
+                + '</div></div></div>';
+            });
+          }
 
-            <!-- Mugshot row -->
-            <div class="mugshot-row">
-              <!-- Photo column -->
-              <div class="photo-col">
-                <div class="height-ruler">
-                  <span>6'2"</span><span>6'0"</span><span>5'10"</span><span>5'8"</span><span>5'6"</span>
-                </div>
-                <div class="photo-frame">
-                  ${photoHtml}
-                  <div class="no-photo" style="${noPhotoStyle}">PHOTO<br>UNAVAILABLE</div>
-                  <div class="vignette"></div>
-                  <div class="scanlines"></div>
-                </div>
-                <div class="booking-strip">
-                  <div class="lbl">BOOKING DATE</div>
-                  <div class="val">Since ${esc(p.jurisdiction || 'Unknown')}</div>
-                </div>
-              </div>
+          // Build donations HTML
+          var donationsHtml = '';
+          if (donations.length === 0) {
+            donationsHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No donation records found.</div>';
+          } else {
+            donations.forEach(function(d) {
+              donationsHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:8px;">'
+                + '<div style="display:flex;gap:10px;align-items:center;">'
+                + '<span style="font-size:14px;">' + donorFlag(d.amountCents) + '</span>'
+                + '<div><div style="color:#ccc;font-size:12px;">' + esc(d.donorName) + '</div>'
+                + '<div style="color:#444;font-size:10px;">' + (d.year || '') + '</div></div></div>'
+                + '<div style="color:#c8001a;font-size:14px;font-weight:900;">' + formatAmount(d.amountCents) + '</div>'
+                + '</div>';
+            });
+            donationsHtml += '<div style="color:#333;font-size:10px;margin-top:4px;">Source: Australian Electoral Commission transparency.aec.gov.au</div>';
+          }
 
-              <!-- Identity column -->
-              <div class="identity-col">
-                <div>
-                  <div class="field-label">FULL NAME</div>
-                  <div class="full-name">${esc(p.name).toUpperCase()}</div>
-                </div>
-                <div class="info-grid">
-                  <div><div class="lbl">OFFICE</div><div class="val">${esc(chamberLabel)}</div></div>
-                  <div><div class="lbl">PARTY</div><div class="val">${esc(p.partyName || p.party || 'Unknown')}</div></div>
-                  <div><div class="lbl">ELECTORATE</div><div class="val">${esc(p.electorate || 'N/A')}</div></div>
-                  <div><div class="lbl">STATUS</div><div class="val highlight">IN POWER</div></div>
-                </div>
-                <div class="stat-pills">
-                  <div class="stat-pill"><div class="n">${actions.length}</div><div class="l">ACTIONS</div></div>
-                  <div class="stat-pill"><div class="n">${donations.length}</div><div class="l">DONORS</div></div>
-                  <div class="stat-pill"><div class="n">${brokenCount}</div><div class="l">BROKEN PROMISES</div></div>
-                  <div class="stat-pill"><div class="n">${foreignTies.length}</div><div class="l">FOREIGN LINKS</div></div>
-                </div>
-              </div>
-            </div>
+          // Build promises HTML
+          var promisesHtml = '';
+          if (promises.length === 0) {
+            promisesHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No election promises on record.</div>';
+          } else {
+            promises.forEach(function(pr) {
+              var st = pr.status || 'pending';
+              var icon = st === 'kept' ? '✓ KEPT' : st === 'broken' ? '✗ BROKEN' : st === 'partial' ? '~ PARTIAL' : '? PENDING';
+              promisesHtml += '<div style="padding:12px;background:#0d0d0d;border:1px solid #1a1a1a;border-left:3px solid ' + promiseBorderColor(st) + ';margin-bottom:10px;">'
+                + '<div style="color:#888;font-size:12px;font-style:italic;margin-bottom:6px;">"' + esc(pr.title) + '"</div>'
+                + '<div style="display:flex;gap:8px;align-items:flex-start;">'
+                + '<span style="font-size:10px;font-weight:900;letter-spacing:1px;min-width:60px;color:' + promiseStatusColor(st) + ';">' + icon + '</span>'
+                + '<span style="color:#aaa;font-size:12px;">' + esc(pr.description || pr.notes || '') + '</span>'
+                + '</div>'
+                + '<div style="margin-top:6px;">'
+                + (pr.madeDate ? '<span style="font-size:10px;color:#555;margin-right:8px;">Made: ' + formatDate(pr.madeDate) + '</span>' : '')
+                + (pr.sourceUrl ? '<a href="' + esc(pr.sourceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Source ↗</a>' : '')
+                + (pr.evidenceUrl ? '<a href="' + esc(pr.evidenceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Evidence ↗</a>' : '')
+                + '</div></div>';
+            });
+          }
 
-            <!-- Tabs -->
-            <div class="tabs">
-              <button class="active" data-tab="actions">ACTIONS</button>
-              <button data-tab="donors">FOLLOW THE MONEY</button>
-              <button data-tab="promises">THEY PROMISED</button>
-              <button data-tab="foreign">FOREIGN TIES</button>
-            </div>
+          // Build foreign ties HTML
+          var foreignHtml = '';
+          if (foreignTies.length === 0) {
+            foreignHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No foreign ties on record.</div>';
+          } else {
+            foreignTies.forEach(function(f) {
+              foreignHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:8px;">'
+                + '<div><div style="color:#ccc;font-size:12px;margin-bottom:3px;">' + esc(f.entityName) + (f.entityCountry ? ' (' + esc(f.entityCountry) + ')' : '') + '</div>'
+                + '<div style="color:#555;font-size:11px;">' + esc(f.relationshipType || f.description || '') + '</div></div>'
+                + '<span style="' + riskBadgeStyle(f.riskRating) + '">' + (f.riskRating || 'LOW').toUpperCase() + '</span>'
+                + '</div>';
+            });
+          }
 
-            <!-- Actions panel -->
-            <div class="tab-panel active" id="panel-actions">
-              <div class="section-label">DOCUMENTED ACTIONS AGAINST THE NATIONAL INTEREST</div>
-              ${actions.length === 0
-                ? '<div class="empty-msg">No documented actions on record.</div>'
-                : actions.map((a, i) => `
-                  <div class="action-row">
-                    <span class="num">${String(i + 1).padStart(2, '0')}</span>
-                    <div>
-                      <div class="txt">${esc(a.title)}</div>
-                      ${a.description ? `<div class="desc">${esc(a.description)}</div>` : ''}
-                      <div class="meta">
-                        ${a.date ? `<span>${formatDate(a.date)}</span>` : ''}
-                        ${a.category ? `<span>${esc(a.category)}</span>` : ''}
-                        ${a.sourceUrl ? `<a href="${esc(a.sourceUrl)}" target="_blank" rel="noopener">Source ↗</a>` : ''}
-                        ${a.evidenceUrl ? `<a href="${esc(a.evidenceUrl)}" target="_blank" rel="noopener">Evidence ↗</a>` : ''}
-                      </div>
-                    </div>
-                  </div>
-                `).join('')}
-            </div>
+          var tabBtnBase = 'flex:1;padding:10px 4px;border:none;font-size:9px;font-weight:900;letter-spacing:1px;cursor:pointer;font-family:\'Courier New\',monospace;border-bottom:2px solid transparent;';
 
-            <!-- Donors panel -->
-            <div class="tab-panel" id="panel-donors">
-              <div class="section-label">SOURCE: AEC TRANSPARENCY REGISTER — WHO PAID THEM</div>
-              ${donations.length === 0
-                ? '<div class="empty-msg">No donation records found.</div>'
-                : donations.map(d => `
-                  <div class="donor-row">
-                    <div class="info">
-                      <span class="flag">${donorFlag(d.amountCents)}</span>
-                      <div>
-                        <div class="name">${esc(d.donorName)}</div>
-                        <div class="year">${d.year || ''}</div>
-                      </div>
-                    </div>
-                    <div class="amount">${formatAmount(d.amountCents)}</div>
-                  </div>
-                `).join('') + '<div class="donor-source">Source: Australian Electoral Commission transparency.aec.gov.au</div>'}
-            </div>
+          card.innerHTML =
+            // Red header
+            '<div style="background:#c8001a;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;">'
+              + '<span style="color:#fff;font-size:11px;font-weight:900;letter-spacing:3px;">AUSTRALIA FIRST — PUBLIC RECORD</span>'
+              + '<span style="color:rgba(255,255,255,0.7);font-size:10px;letter-spacing:1px;">CASE #' + esc(caseNum) + '</span>'
+            + '</div>'
 
-            <!-- Promises panel -->
-            <div class="tab-panel" id="panel-promises">
-              <div class="section-label">WHAT THEY SAID VS WHAT THEY DID</div>
-              ${promises.length === 0
-                ? '<div class="empty-msg">No election promises on record.</div>'
-                : promises.map(pr => {
-                    const st = pr.status || 'pending';
-                    const icon = st === 'kept' ? '✓ KEPT' : st === 'broken' ? '✗ BROKEN' : st === 'partial' ? '~ PARTIAL' : '? PENDING';
-                    return `
-                      <div class="promise-row ${st}">
-                        <div class="quote">"${esc(pr.title)}"</div>
-                        <div class="verdict">
-                          <span class="status-tag ${st}">${icon}</span>
-                          <span class="reality">${esc(pr.description || pr.notes || '')}</span>
-                        </div>
-                        <div class="meta">
-                          ${pr.madeDate ? `<span>Made: ${formatDate(pr.madeDate)}</span>` : ''}
-                          ${pr.sourceUrl ? `<a href="${esc(pr.sourceUrl)}" target="_blank" rel="noopener">Source ↗</a>` : ''}
-                          ${pr.evidenceUrl ? `<a href="${esc(pr.evidenceUrl)}" target="_blank" rel="noopener">Evidence ↗</a>` : ''}
-                        </div>
-                      </div>
-                    `;
-                  }).join('')}
-            </div>
+            // Mugshot row
+            + '<div style="display:flex;border-bottom:1px solid #1e1e1e;">'
 
-            <!-- Foreign ties panel -->
-            <div class="tab-panel" id="panel-foreign">
-              <div class="section-label">FOREIGN ENTITY ASSOCIATIONS & RISK ASSESSMENT</div>
-              ${foreignTies.length === 0
-                ? '<div class="empty-msg">No foreign ties on record.</div>'
-                : foreignTies.map(f => `
-                  <div class="foreign-row">
-                    <div>
-                      <div class="entity">${esc(f.entityName)}${f.entityCountry ? ' (' + esc(f.entityCountry) + ')' : ''}</div>
-                      <div class="role">${esc(f.relationshipType || f.description || '')}</div>
-                    </div>
-                    <span class="risk-badge ${riskClass(f.riskRating)}">${(f.riskRating || 'LOW').toUpperCase()}</span>
-                  </div>
-                `).join('')}
-            </div>
+              // Photo column
+              + '<div style="position:relative;width:200px;min-width:200px;background:#111;overflow:hidden;">'
+                // Height ruler
+                + '<div style="position:absolute;right:0;top:0;bottom:0;width:28px;background:#0a0a0a;border-left:1px solid #222;display:flex;flex-direction:column;justify-content:space-between;padding:8px 0;z-index:2;">'
+                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">6\'2"</span>'
+                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">6\'0"</span>'
+                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'10"</span>'
+                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'8"</span>'
+                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'6"</span>'
+                + '</div>'
+                // Photo frame
+                + '<div style="width:172px;height:220px;overflow:hidden;position:relative;background:#1a1a1a;">'
+                  + photoImgHtml
+                  + '<div style="width:100%;height:100%;display:' + noPhotoDisplay + ';align-items:center;justify-content:center;color:#333;font-size:11px;text-align:center;padding:10px;">PHOTO<br>UNAVAILABLE</div>'
+                  + '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,0.7) 100%);pointer-events:none;"></div>'
+                  + '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;"></div>'
+                + '</div>'
+                // Booking strip
+                + '<div style="background:#0a0a0a;border-top:1px solid #1e1e1e;padding:8px;text-align:center;">'
+                  + '<div style="color:#c8001a;font-size:10px;letter-spacing:2px;margin-bottom:3px;">BOOKING DATE</div>'
+                  + '<div style="color:#666;font-size:11px;">Since ' + esc(p.jurisdiction || 'Unknown') + '</div>'
+                + '</div>'
+              + '</div>'
 
-            <!-- Footer -->
-            <div class="card-footer">
-              <span class="left">ALL DATA SOURCED FROM PUBLIC RECORDS</span>
-              <span class="right">AUSTRALIAFIRST.XYZ</span>
-            </div>
-          `;
+              // Identity column
+              + '<div style="flex:1;padding:20px;border-left:1px solid #1a1a1a;display:flex;flex-direction:column;gap:12px;">'
+                + '<div>'
+                  + '<div style="color:#444;font-size:10px;letter-spacing:3px;margin-bottom:4px;">FULL NAME</div>'
+                  + '<div style="color:#f0f0f0;font-size:22px;font-weight:900;line-height:1.1;letter-spacing:-0.5px;">' + esc(p.name).toUpperCase() + '</div>'
+                + '</div>'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">OFFICE</div><div style="color:#aaa;font-size:12px;">' + esc(chamberLabel) + '</div></div>'
+                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">PARTY</div><div style="color:#aaa;font-size:12px;">' + esc(p.partyName || p.party || 'Unknown') + '</div></div>'
+                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">ELECTORATE</div><div style="color:#aaa;font-size:12px;">' + esc(p.electorate || 'N/A') + '</div></div>'
+                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">STATUS</div><div style="color:#c8001a;font-weight:900;letter-spacing:2px;font-size:12px;">IN POWER</div></div>'
+                + '</div>'
+                + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">'
+                  + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + actions.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">ACTIONS</div></div>'
+                  + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + donations.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">DONORS</div></div>'
+                  + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + brokenCount + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">BROKEN PROMISES</div></div>'
+                  + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + foreignTies.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">FOREIGN LINKS</div></div>'
+                + '</div>'
+              + '</div>'
+
+            + '</div>'
+
+            // Tabs
+            + '<div style="display:flex;border-bottom:1px solid #1a1a1a;background:#080808;">'
+              + '<button id="tab-btn-actions" onclick="switchTab(\'actions\')" style="' + tabBtnBase + 'background:#111;border-bottom-color:#c8001a;color:#f0f0f0;">ACTIONS</button>'
+              + '<button id="tab-btn-donors" onclick="switchTab(\'donors\')" style="' + tabBtnBase + 'background:transparent;color:#444;">FOLLOW THE MONEY</button>'
+              + '<button id="tab-btn-promises" onclick="switchTab(\'promises\')" style="' + tabBtnBase + 'background:transparent;color:#444;">THEY PROMISED</button>'
+              + '<button id="tab-btn-foreign" onclick="switchTab(\'foreign\')" style="' + tabBtnBase + 'background:transparent;color:#444;">FOREIGN TIES</button>'
+            + '</div>'
+
+            // Panels
+            + '<div id="panel-actions" style="display:block;padding:16px;min-height:200px;">'
+              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">DOCUMENTED ACTIONS AGAINST THE NATIONAL INTEREST</div>'
+              + actionsHtml
+            + '</div>'
+
+            + '<div id="panel-donors" style="display:none;padding:16px;min-height:200px;">'
+              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">SOURCE: AEC TRANSPARENCY REGISTER — WHO PAID THEM</div>'
+              + donationsHtml
+            + '</div>'
+
+            + '<div id="panel-promises" style="display:none;padding:16px;min-height:200px;">'
+              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">WHAT THEY SAID VS WHAT THEY DID</div>'
+              + promisesHtml
+            + '</div>'
+
+            + '<div id="panel-foreign" style="display:none;padding:16px;min-height:200px;">'
+              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">FOREIGN ENTITY ASSOCIATIONS & RISK ASSESSMENT</div>'
+              + foreignHtml
+            + '</div>'
+
+            // Footer
+            + '<div style="border-top:1px solid #1a1a1a;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:#080808;">'
+              + '<span style="color:#2a2a2a;font-size:10px;letter-spacing:1px;">ALL DATA SOURCED FROM PUBLIC RECORDS</span>'
+              + '<span style="color:#c8001a;font-size:10px;letter-spacing:2px;font-weight:900;">AUSTRALIAFIRST.XYZ</span>'
+            + '</div>';
 
           document.title = p.name.toUpperCase() + ' | Australia First';
 
-          // Wire up tabs
-          document.querySelectorAll('.tabs button').forEach(btn => {
-            btn.addEventListener('click', () => {
-              document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
-              document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-              btn.classList.add('active');
-              document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
-            });
-          });
-
         } catch (e) {
-          card.innerHTML = '<div class="loading-state">Failed to load profile.</div>';
+          card.innerHTML = '<div style="text-align:center;padding:60px;color:#333;font-size:12px;">Failed to load profile.</div>';
         }
       }
 
