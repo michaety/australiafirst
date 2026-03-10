@@ -10,175 +10,185 @@ const { id } = Astro.params;
   <head>
     <BaseHead title="Politician Profile | Australia First" description="Accountability profile for Australian federal politician" />
     <style>
-      body { background: #0a0a0a; color: #e8e8e8; font-family: 'Courier New', monospace; margin: 0; }
-      .back-link {
-        display: inline-block;
-        padding: 0.75rem 1.5rem;
-        color: #888;
-        text-decoration: none;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        border-bottom: 1px solid #1a1a1a;
-        width: 100%;
-        background: #0f0f0f;
-        box-sizing: border-box;
-      }
-      .back-link:hover { color: #cc0000; }
-      .profile-header {
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #050505; color: #e8e8e8; font-family: 'Courier New', monospace; margin: 0; }
+      a { color: inherit; text-decoration: none; }
+      .page-wrap {
+        min-height: 100vh;
         display: flex;
-        gap: 2rem;
-        padding: 2rem;
-        border-bottom: 1px solid #1a1a1a;
-        background: #0f0f0f;
-        align-items: flex-start;
-        flex-wrap: wrap;
-      }
-      .mugshot {
-        width: 160px;
-        flex-shrink: 0;
-        aspect-ratio: 3/4;
-        background: #1a1a1a;
-        overflow: hidden;
-        border: 2px solid #2a2a2a;
-      }
-      .mugshot img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        filter: grayscale(20%) contrast(1.15);
-      }
-      .mugshot-placeholder {
-        width: 100%;
-        height: 100%;
-        display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        font-size: 4rem;
-        color: #333;
+        padding: 40px 20px;
+        gap: 32px;
       }
-      .profile-info { flex: 1; min-width: 200px; }
-      .profile-name {
-        font-size: 2rem;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color: #fff;
-        margin: 0 0 0.5rem;
-        line-height: 1.2;
+      .site-header { text-align: center; max-width: 680px; width: 100%; }
+      .site-header .brand { color: #c8001a; font-size: 11px; letter-spacing: 6px; margin-bottom: 8px; }
+      .site-header .title { color: #f0f0f0; font-size: 28px; font-weight: 900; letter-spacing: -1px; margin-bottom: 8px; }
+      .site-header .subtitle { color: #444; font-size: 12px; line-height: 1.6; }
+
+      /* Card shell */
+      .card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 4px; overflow: hidden; max-width: 680px; width: 100%; }
+
+      /* Red header */
+      .card-header { background: #c8001a; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; }
+      .card-header .label { color: #fff; font-size: 11px; font-weight: 900; letter-spacing: 3px; }
+      .card-header .case { color: rgba(255,255,255,0.7); font-size: 10px; letter-spacing: 1px; }
+
+      /* Mugshot row */
+      .mugshot-row { display: flex; gap: 0; border-bottom: 1px solid #1e1e1e; }
+
+      /* Photo column */
+      .photo-col { position: relative; width: 200px; min-width: 200px; background: #111; overflow: hidden; }
+      .height-ruler {
+        position: absolute; right: 0; top: 0; bottom: 0; width: 28px;
+        background: #0a0a0a; border-left: 1px solid #222;
+        display: flex; flex-direction: column; justify-content: space-between;
+        padding: 8px 0; z-index: 2;
       }
-      .profile-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
-      .meta-pill {
-        display: inline-block;
-        font-size: 0.7rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        padding: 0.25rem 0.6rem;
-        border: 1px solid;
+      .height-ruler span { color: #444; font-size: 7px; text-align: center; border-bottom: 1px solid #1a1a1a; padding-bottom: 2px; }
+      .photo-frame { width: 172px; height: 220px; overflow: hidden; position: relative; background: #1a1a1a; }
+      .photo-frame img {
+        width: 100%; height: 100%; object-fit: cover; object-position: top;
+        filter: grayscale(30%) contrast(1.2) brightness(0.85); display: block;
       }
-      .pill-party { color: #ff9900; border-color: #ff9900; }
-      .pill-chamber { color: #00aaff; border-color: #00aaff; }
-      .pill-electorate { color: #888; border-color: #444; }
-      .profile-bio { color: #aaa; font-size: 0.85rem; line-height: 1.6; max-width: 600px; }
-      .tabs {
-        display: flex;
-        border-bottom: 1px solid #2a2a2a;
-        background: #0f0f0f;
-        overflow-x: auto;
+      .photo-frame .no-photo {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        color: #333; font-size: 11px; text-align: center; padding: 10px;
       }
-      .tab {
-        padding: 1rem 1.5rem;
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        cursor: pointer;
-        border: none;
-        background: none;
-        color: #666;
-        white-space: nowrap;
-        border-bottom: 3px solid transparent;
-        transition: color 0.15s, border-color 0.15s;
-        font-family: inherit;
+      .photo-frame .vignette {
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+        pointer-events: none;
       }
-      .tab:hover { color: #e8e8e8; }
-      .tab.active { color: #cc0000; border-bottom-color: #cc0000; }
-      .tab-badge {
-        display: inline-block;
-        margin-left: 0.4rem;
-        background: #1a1a1a;
-        padding: 0.1rem 0.3rem;
-        font-size: 0.65rem;
-        color: #666;
+      .photo-frame .scanlines {
+        position: absolute; inset: 0;
+        background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+        pointer-events: none;
       }
-      .tab-content { display: none; padding: 2rem; max-width: 900px; margin: 0 auto; }
-      .tab-content.active { display: block; }
-      .empty-tab { color: #555; font-size: 0.85rem; padding: 2rem 0; text-align: center; }
-      .item-card {
-        background: #111;
-        border: 1px solid #2a2a2a;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        border-left: 3px solid #333;
+      .booking-strip { background: #0a0a0a; border-top: 1px solid #1e1e1e; padding: 8px; text-align: center; }
+      .booking-strip .lbl { color: #c8001a; font-size: 10px; letter-spacing: 2px; margin-bottom: 3px; }
+      .booking-strip .val { color: #666; font-size: 11px; }
+
+      /* Identity column */
+      .identity-col { flex: 1; padding: 20px; border-left: 1px solid #1a1a1a; display: flex; flex-direction: column; gap: 12px; }
+      .field-label { color: #444; font-size: 10px; letter-spacing: 3px; margin-bottom: 4px; }
+      .full-name { color: #f0f0f0; font-size: 22px; font-weight: 900; line-height: 1.1; letter-spacing: -0.5px; }
+      .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .info-grid .lbl { color: #444; font-size: 9px; letter-spacing: 2px; margin-bottom: 3px; }
+      .info-grid .val { color: #aaa; font-size: 12px; }
+      .info-grid .val.highlight { color: #c8001a; font-weight: 900; letter-spacing: 2px; }
+      .stat-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+      .stat-pill { background: #111; border: 1px solid #1e1e1e; border-radius: 2px; padding: 4px 10px; text-align: center; }
+      .stat-pill .n { color: #c8001a; font-size: 16px; font-weight: 900; }
+      .stat-pill .l { color: #444; font-size: 8px; letter-spacing: 1px; }
+
+      /* Tabs */
+      .tabs { display: flex; border-bottom: 1px solid #1a1a1a; background: #080808; }
+      .tabs button {
+        flex: 1; padding: 10px 4px; background: transparent; border: none;
+        border-bottom: 2px solid transparent; color: #444; font-size: 9px;
+        font-weight: 900; letter-spacing: 1px; cursor: pointer;
+        font-family: 'Courier New', monospace; transition: all 0.15s;
       }
-      .item-card.status-kept { border-left-color: #00aa44; }
-      .item-card.status-broken { border-left-color: #cc0000; }
-      .item-card.status-partial { border-left-color: #ff9900; }
-      .item-card.status-pending { border-left-color: #666; }
-      .item-card.risk-critical { border-left-color: #cc0000; }
-      .item-card.risk-high { border-left-color: #ff4400; }
-      .item-card.risk-medium { border-left-color: #ff9900; }
-      .item-card.risk-low { border-left-color: #444; }
-      .item-title { font-size: 0.9rem; font-weight: 700; color: #e8e8e8; margin-bottom: 0.4rem; }
-      .item-desc { font-size: 0.8rem; color: #aaa; line-height: 1.5; margin-bottom: 0.5rem; }
-      .item-meta { display: flex; gap: 1rem; flex-wrap: wrap; }
-      .item-meta span { font-size: 0.7rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
-      .item-meta a { color: #4499ff; text-decoration: none; font-size: 0.7rem; }
-      .item-meta a:hover { text-decoration: underline; }
-      .status-badge {
-        display: inline-block;
-        font-size: 0.65rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        padding: 0.15rem 0.5rem;
-        margin-bottom: 0.5rem;
-      }
-      .badge-kept { background: #003300; color: #00aa44; border: 1px solid #00aa44; }
-      .badge-broken { background: #330000; color: #cc0000; border: 1px solid #cc0000; }
-      .badge-partial { background: #331a00; color: #ff9900; border: 1px solid #ff9900; }
-      .badge-pending { background: #1a1a1a; color: #888; border: 1px solid #444; }
-      .risk-badge {
-        display: inline-block;
-        font-size: 0.65rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        padding: 0.15rem 0.5rem;
-        margin-bottom: 0.5rem;
-      }
-      .risk-critical { background: #330000; color: #cc0000; border: 1px solid #cc0000; }
-      .risk-high { background: #331100; color: #ff4400; border: 1px solid #ff4400; }
-      .risk-medium { background: #332200; color: #ff9900; border: 1px solid #ff9900; }
-      .risk-low { background: #1a1a1a; color: #888; border: 1px solid #444; }
-      .donation-amount { font-size: 1.1rem; font-weight: 900; color: #ff9900; margin-bottom: 0.25rem; }
-      .section-total { font-size: 0.8rem; color: #666; margin-bottom: 1.5rem; padding: 0.5rem; background: #111; border: 1px solid #1a1a1a; }
-      .loading-state { text-align: center; padding: 4rem; color: #555; }
+      .tabs button:hover { color: #888; }
+      .tabs button.active { background: #111; border-bottom-color: #c8001a; color: #f0f0f0; }
+
+      /* Tab content */
+      .tab-panel { display: none; padding: 16px; min-height: 200px; }
+      .tab-panel.active { display: block; }
+      .section-label { color: #444; font-size: 9px; letter-spacing: 2px; margin-bottom: 8px; }
+      .empty-msg { color: #333; font-size: 12px; text-align: center; padding: 40px 0; }
+
+      /* Actions tab */
+      .action-row { display: flex; gap: 12px; align-items: flex-start; padding: 10px; background: #0d0d0d; border: 1px solid #1a1a1a; border-left: 3px solid #c8001a; margin-bottom: 8px; }
+      .action-row .num { color: #c8001a; font-size: 11px; font-weight: 900; min-width: 20px; }
+      .action-row .txt { color: #ccc; font-size: 12px; line-height: 1.5; }
+      .action-row .desc { color: #888; font-size: 11px; line-height: 1.4; margin-top: 4px; }
+      .action-row .meta { margin-top: 4px; }
+      .action-row .meta a, .action-row .meta span { font-size: 10px; color: #555; margin-right: 8px; }
+      .action-row .meta a { color: #4499ff; }
+
+      /* Donors tab */
+      .donor-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #0d0d0d; border: 1px solid #1a1a1a; margin-bottom: 8px; }
+      .donor-row .info { display: flex; gap: 10px; align-items: center; }
+      .donor-row .flag { font-size: 14px; }
+      .donor-row .name { color: #ccc; font-size: 12px; }
+      .donor-row .year { color: #444; font-size: 10px; }
+      .donor-row .amount { color: #c8001a; font-size: 14px; font-weight: 900; }
+      .donor-source { color: #333; font-size: 10px; margin-top: 4px; }
+
+      /* Promises tab */
+      .promise-row { padding: 12px; background: #0d0d0d; border: 1px solid #1a1a1a; margin-bottom: 10px; }
+      .promise-row.kept { border-left: 3px solid #2bff6e; }
+      .promise-row.broken { border-left: 3px solid #c8001a; }
+      .promise-row.partial { border-left: 3px solid #ff8c00; }
+      .promise-row.pending { border-left: 3px solid #666; }
+      .promise-row .quote { color: #888; font-size: 12px; font-style: italic; margin-bottom: 6px; }
+      .promise-row .verdict { display: flex; gap: 8px; align-items: flex-start; }
+      .promise-row .status-tag { font-size: 10px; font-weight: 900; letter-spacing: 1px; min-width: 60px; }
+      .promise-row .status-tag.kept { color: #2bff6e; }
+      .promise-row .status-tag.broken { color: #c8001a; }
+      .promise-row .status-tag.partial { color: #ff8c00; }
+      .promise-row .status-tag.pending { color: #666; }
+      .promise-row .reality { color: #aaa; font-size: 12px; }
+      .promise-row .meta { margin-top: 6px; }
+      .promise-row .meta a, .promise-row .meta span { font-size: 10px; color: #555; margin-right: 8px; }
+      .promise-row .meta a { color: #4499ff; }
+
+      /* Foreign ties tab */
+      .foreign-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #0d0d0d; border: 1px solid #1a1a1a; margin-bottom: 8px; }
+      .foreign-row .entity { color: #ccc; font-size: 12px; margin-bottom: 3px; }
+      .foreign-row .role { color: #555; font-size: 11px; }
+      .risk-badge { font-size: 10px; font-weight: 900; padding: 2px 7px; border-radius: 2px; letter-spacing: 1px; }
+      .risk-badge.high, .risk-badge.critical { background: #ff2b2b; color: #fff; }
+      .risk-badge.medium { background: #ff8c00; color: #000; }
+      .risk-badge.low { background: #2bff6e; color: #000; }
+
+      /* Footer */
+      .card-footer { border-top: 1px solid #1a1a1a; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; background: #080808; }
+      .card-footer .left { color: #2a2a2a; font-size: 10px; letter-spacing: 1px; }
+      .card-footer .right { color: #c8001a; font-size: 10px; letter-spacing: 2px; font-weight: 900; }
+
+      .page-sources { color: #222; font-size: 10px; text-align: center; max-width: 500px; line-height: 1.8; }
+      .loading-state { text-align: center; padding: 60px; color: #333; font-size: 12px; }
+
       @media (max-width: 600px) {
-        .profile-header { padding: 1rem; gap: 1rem; }
-        .mugshot { width: 100px; }
-        .profile-name { font-size: 1.4rem; }
+        .mugshot-row { flex-direction: column; }
+        .photo-col { width: 100%; min-width: unset; }
+        .photo-frame { width: 100%; height: 260px; }
+        .height-ruler { display: none; }
+        .identity-col { padding: 16px; }
+        .full-name { font-size: 18px; }
+        .page-wrap { padding: 20px 10px; }
       }
     </style>
   </head>
   <body>
-    <a class="back-link" href="/">← Back to Register</a>
-    <div id="profile-container">
-      <div class="loading-state">Loading profile...</div>
+    <div class="page-wrap">
+      <div class="site-header">
+        <div class="brand">&#9670; AUSTRALIA FIRST &#9670;</div>
+        <div class="title">PUBLIC ACCOUNTABILITY REGISTER</div>
+        <div class="subtitle">Every politician. Every donor. Every broken promise. Every foreign tie.<br>All public data. No spin.</div>
+      </div>
+
+      <div class="card" id="mugshot-card">
+        <div class="loading-state">Loading profile...</div>
+      </div>
+
+      <div class="page-sources">
+        Data sources: Australian Electoral Commission &middot; OpenAustralia &middot; TheyVoteForYou &middot;
+        Parliament of Australia &middot; ASIC &middot; Foreign Influence Transparency Scheme
+      </div>
     </div>
 
     <script define:vars={{ politicianId: id }}>
+      function esc(s) {
+        if (!s) return '';
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
       function formatAmount(cents) {
         if (!cents) return 'Undisclosed';
         return '$' + (cents / 100).toLocaleString('en-AU', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -189,146 +199,195 @@ const { id } = Astro.params;
         return new Date(d).toLocaleDateString('en-AU', { year: 'numeric', month: 'short', day: 'numeric' });
       }
 
-      function renderActions(actions) {
-        if (!actions.length) return '<div class="empty-tab">No documented actions on record.</div>';
-        return actions.map(a => `
-          <div class="item-card">
-            <div class="item-title">${a.title}</div>
-            ${a.description ? `<div class="item-desc">${a.description}</div>` : ''}
-            <div class="item-meta">
-              ${a.date ? `<span>${formatDate(a.date)}</span>` : ''}
-              ${a.category ? `<span>${a.category}</span>` : ''}
-              ${a.sourceUrl ? `<a href="${a.sourceUrl}" target="_blank" rel="noopener">Source ↗</a>` : ''}
-              ${a.evidenceUrl ? `<a href="${a.evidenceUrl}" target="_blank" rel="noopener">Evidence ↗</a>` : ''}
-            </div>
-          </div>
-        `).join('');
+      function riskClass(r) {
+        return (r || 'low').toLowerCase();
       }
 
-      function renderDonations(donations) {
-        if (!donations.length) return '<div class="empty-tab">No donation records found.</div>';
-        const total = donations.reduce((sum, d) => sum + (d.amountCents || 0), 0);
-        const totalStr = total > 0 ? `Total disclosed: ${formatAmount(total)}` : 'Total: undisclosed amounts only';
-        return `
-          <div class="section-total">${totalStr} across ${donations.length} record${donations.length !== 1 ? 's' : ''}</div>
-          ${donations.map(d => `
-            <div class="item-card">
-              <div class="donation-amount">${formatAmount(d.amountCents)}</div>
-              <div class="item-title">${d.donorName}</div>
-              <div class="item-meta">
-                ${d.year ? `<span>${d.year}</span>` : ''}
-                <span>${d.source}</span>
-                ${d.sourceUrl ? `<a href="${d.sourceUrl}" target="_blank" rel="noopener">Source ↗</a>` : ''}
-                ${d.notes ? `<span>${d.notes}</span>` : ''}
-              </div>
-            </div>
-          `).join('')}
-        `;
-      }
-
-      function renderPromises(promises) {
-        if (!promises.length) return '<div class="empty-tab">No election promises on record.</div>';
-        return promises.map(p => {
-          const badgeClass = `badge-${p.status}`;
-          const statusLabel = p.status.charAt(0).toUpperCase() + p.status.slice(1);
-          return `
-            <div class="item-card status-${p.status}">
-              <div class="status-badge ${badgeClass}">${statusLabel}</div>
-              <div class="item-title">${p.title}</div>
-              ${p.description ? `<div class="item-desc">${p.description}</div>` : ''}
-              <div class="item-meta">
-                ${p.madeDate ? `<span>Made: ${formatDate(p.madeDate)}</span>` : ''}
-                ${p.deadlineDate ? `<span>Deadline: ${formatDate(p.deadlineDate)}</span>` : ''}
-                ${p.sourceUrl ? `<a href="${p.sourceUrl}" target="_blank" rel="noopener">Source ↗</a>` : ''}
-                ${p.evidenceUrl ? `<a href="${p.evidenceUrl}" target="_blank" rel="noopener">Evidence ↗</a>` : ''}
-                ${p.notes ? `<span>${p.notes}</span>` : ''}
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
-
-      function renderForeignTies(ties) {
-        if (!ties.length) return '<div class="empty-tab">No foreign ties on record.</div>';
-        return ties.map(f => `
-          <div class="item-card risk-${f.riskRating}">
-            <div class="risk-badge risk-${f.riskRating}">${f.riskRating.toUpperCase()} RISK</div>
-            <div class="item-title">${f.entityName}${f.entityCountry ? ` (${f.entityCountry})` : ''}</div>
-            ${f.description ? `<div class="item-desc">${f.description}</div>` : ''}
-            <div class="item-meta">
-              ${f.relationshipType ? `<span>${f.relationshipType}</span>` : ''}
-              ${f.dateStart ? `<span>From: ${formatDate(f.dateStart)}</span>` : ''}
-              ${f.dateEnd ? `<span>To: ${formatDate(f.dateEnd)}</span>` : ''}
-              ${f.sourceUrl ? `<a href="${f.sourceUrl}" target="_blank" rel="noopener">Source ↗</a>` : ''}
-            </div>
-          </div>
-        `).join('');
+      function donorFlag(amountCents) {
+        if (!amountCents) return '⚪';
+        if (amountCents >= 10000000) return '🔴';
+        if (amountCents >= 2000000) return '🟡';
+        return '🟢';
       }
 
       async function loadProfile() {
+        const card = document.getElementById('mugshot-card');
         try {
           const res = await fetch(`/api/v1/politicians/${politicianId}.json`);
           if (res.status === 404) {
-            document.getElementById('profile-container').innerHTML =
-              '<div style="padding:4rem;text-align:center;color:#666">Politician not found.</div>';
+            card.innerHTML = '<div class="loading-state">Politician not found.</div>';
             return;
           }
           const data = await res.json();
-          const { politician, actions, donations, promises, foreignTies } = data;
+          const { politician: p, actions, donations, promises, foreignTies } = data;
 
-          const initials = politician.name.split(' ').map(n => n[0]).join('').slice(0, 2);
-          const photoHtml = politician.photoUrl
-            ? `<img src="${politician.photoUrl}" alt="${politician.name}" loading="lazy">`
-            : `<div class="mugshot-placeholder">${initials}</div>`;
+          const caseNum = 'AF-' + (p.id || '').replace(/[^0-9]/g, '').slice(0, 6);
+          const chamberLabel = p.chamber === 'senate' ? 'Senator' : 'Member of Parliament';
+          const brokenCount = promises.filter(pr => pr.status === 'broken').length;
 
-          const html = `
-            <div class="profile-header">
-              <div class="mugshot">${photoHtml}</div>
-              <div class="profile-info">
-                <h1 class="profile-name">${politician.name}</h1>
-                <div class="profile-meta">
-                  ${politician.party ? `<span class="meta-pill pill-party">${politician.partyName || politician.party}</span>` : ''}
-                  <span class="meta-pill pill-chamber">${politician.chamber === 'senate' ? 'Senator' : 'MP'}</span>
-                  ${politician.electorate ? `<span class="meta-pill pill-electorate">${politician.electorate}</span>` : ''}
+          const photoHtml = p.photoUrl
+            ? `<img src="${esc(p.photoUrl)}" alt="${esc(p.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+            : '';
+          const noPhotoStyle = p.photoUrl ? 'display:none' : 'display:flex';
+
+          card.innerHTML = `
+            <!-- Red header -->
+            <div class="card-header">
+              <span class="label">AUSTRALIA FIRST — PUBLIC RECORD</span>
+              <span class="case">CASE #${esc(caseNum)}</span>
+            </div>
+
+            <!-- Mugshot row -->
+            <div class="mugshot-row">
+              <!-- Photo column -->
+              <div class="photo-col">
+                <div class="height-ruler">
+                  <span>6'2"</span><span>6'0"</span><span>5'10"</span><span>5'8"</span><span>5'6"</span>
                 </div>
-                ${politician.bio ? `<div class="profile-bio">${politician.bio}</div>` : ''}
+                <div class="photo-frame">
+                  ${photoHtml}
+                  <div class="no-photo" style="${noPhotoStyle}">PHOTO<br>UNAVAILABLE</div>
+                  <div class="vignette"></div>
+                  <div class="scanlines"></div>
+                </div>
+                <div class="booking-strip">
+                  <div class="lbl">BOOKING DATE</div>
+                  <div class="val">Since ${esc(p.jurisdiction || 'Unknown')}</div>
+                </div>
+              </div>
+
+              <!-- Identity column -->
+              <div class="identity-col">
+                <div>
+                  <div class="field-label">FULL NAME</div>
+                  <div class="full-name">${esc(p.name).toUpperCase()}</div>
+                </div>
+                <div class="info-grid">
+                  <div><div class="lbl">OFFICE</div><div class="val">${esc(chamberLabel)}</div></div>
+                  <div><div class="lbl">PARTY</div><div class="val">${esc(p.partyName || p.party || 'Unknown')}</div></div>
+                  <div><div class="lbl">ELECTORATE</div><div class="val">${esc(p.electorate || 'N/A')}</div></div>
+                  <div><div class="lbl">STATUS</div><div class="val highlight">IN POWER</div></div>
+                </div>
+                <div class="stat-pills">
+                  <div class="stat-pill"><div class="n">${actions.length}</div><div class="l">ACTIONS</div></div>
+                  <div class="stat-pill"><div class="n">${donations.length}</div><div class="l">DONORS</div></div>
+                  <div class="stat-pill"><div class="n">${brokenCount}</div><div class="l">BROKEN PROMISES</div></div>
+                  <div class="stat-pill"><div class="n">${foreignTies.length}</div><div class="l">FOREIGN LINKS</div></div>
+                </div>
               </div>
             </div>
+
+            <!-- Tabs -->
             <div class="tabs">
-              <button class="tab active" data-tab="actions">
-                Actions <span class="tab-badge">${actions.length}</span>
-              </button>
-              <button class="tab" data-tab="money">
-                Follow the Money <span class="tab-badge">${donations.length}</span>
-              </button>
-              <button class="tab" data-tab="promises">
-                They Promised <span class="tab-badge">${promises.length}</span>
-              </button>
-              <button class="tab" data-tab="foreign">
-                Foreign Ties <span class="tab-badge">${foreignTies.length}</span>
-              </button>
+              <button class="active" data-tab="actions">ACTIONS</button>
+              <button data-tab="donors">FOLLOW THE MONEY</button>
+              <button data-tab="promises">THEY PROMISED</button>
+              <button data-tab="foreign">FOREIGN TIES</button>
             </div>
-            <div id="tab-actions" class="tab-content active">${renderActions(actions)}</div>
-            <div id="tab-money" class="tab-content">${renderDonations(donations)}</div>
-            <div id="tab-promises" class="tab-content">${renderPromises(promises)}</div>
-            <div id="tab-foreign" class="tab-content">${renderForeignTies(foreignTies)}</div>
+
+            <!-- Actions panel -->
+            <div class="tab-panel active" id="panel-actions">
+              <div class="section-label">DOCUMENTED ACTIONS AGAINST THE NATIONAL INTEREST</div>
+              ${actions.length === 0
+                ? '<div class="empty-msg">No documented actions on record.</div>'
+                : actions.map((a, i) => `
+                  <div class="action-row">
+                    <span class="num">${String(i + 1).padStart(2, '0')}</span>
+                    <div>
+                      <div class="txt">${esc(a.title)}</div>
+                      ${a.description ? `<div class="desc">${esc(a.description)}</div>` : ''}
+                      <div class="meta">
+                        ${a.date ? `<span>${formatDate(a.date)}</span>` : ''}
+                        ${a.category ? `<span>${esc(a.category)}</span>` : ''}
+                        ${a.sourceUrl ? `<a href="${esc(a.sourceUrl)}" target="_blank" rel="noopener">Source ↗</a>` : ''}
+                        ${a.evidenceUrl ? `<a href="${esc(a.evidenceUrl)}" target="_blank" rel="noopener">Evidence ↗</a>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+            </div>
+
+            <!-- Donors panel -->
+            <div class="tab-panel" id="panel-donors">
+              <div class="section-label">SOURCE: AEC TRANSPARENCY REGISTER — WHO PAID THEM</div>
+              ${donations.length === 0
+                ? '<div class="empty-msg">No donation records found.</div>'
+                : donations.map(d => `
+                  <div class="donor-row">
+                    <div class="info">
+                      <span class="flag">${donorFlag(d.amountCents)}</span>
+                      <div>
+                        <div class="name">${esc(d.donorName)}</div>
+                        <div class="year">${d.year || ''}</div>
+                      </div>
+                    </div>
+                    <div class="amount">${formatAmount(d.amountCents)}</div>
+                  </div>
+                `).join('') + '<div class="donor-source">Source: Australian Electoral Commission transparency.aec.gov.au</div>'}
+            </div>
+
+            <!-- Promises panel -->
+            <div class="tab-panel" id="panel-promises">
+              <div class="section-label">WHAT THEY SAID VS WHAT THEY DID</div>
+              ${promises.length === 0
+                ? '<div class="empty-msg">No election promises on record.</div>'
+                : promises.map(pr => {
+                    const st = pr.status || 'pending';
+                    const icon = st === 'kept' ? '✓ KEPT' : st === 'broken' ? '✗ BROKEN' : st === 'partial' ? '~ PARTIAL' : '? PENDING';
+                    return `
+                      <div class="promise-row ${st}">
+                        <div class="quote">"${esc(pr.title)}"</div>
+                        <div class="verdict">
+                          <span class="status-tag ${st}">${icon}</span>
+                          <span class="reality">${esc(pr.description || pr.notes || '')}</span>
+                        </div>
+                        <div class="meta">
+                          ${pr.madeDate ? `<span>Made: ${formatDate(pr.madeDate)}</span>` : ''}
+                          ${pr.sourceUrl ? `<a href="${esc(pr.sourceUrl)}" target="_blank" rel="noopener">Source ↗</a>` : ''}
+                          ${pr.evidenceUrl ? `<a href="${esc(pr.evidenceUrl)}" target="_blank" rel="noopener">Evidence ↗</a>` : ''}
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+            </div>
+
+            <!-- Foreign ties panel -->
+            <div class="tab-panel" id="panel-foreign">
+              <div class="section-label">FOREIGN ENTITY ASSOCIATIONS & RISK ASSESSMENT</div>
+              ${foreignTies.length === 0
+                ? '<div class="empty-msg">No foreign ties on record.</div>'
+                : foreignTies.map(f => `
+                  <div class="foreign-row">
+                    <div>
+                      <div class="entity">${esc(f.entityName)}${f.entityCountry ? ' (' + esc(f.entityCountry) + ')' : ''}</div>
+                      <div class="role">${esc(f.relationshipType || f.description || '')}</div>
+                    </div>
+                    <span class="risk-badge ${riskClass(f.riskRating)}">${(f.riskRating || 'LOW').toUpperCase()}</span>
+                  </div>
+                `).join('')}
+            </div>
+
+            <!-- Footer -->
+            <div class="card-footer">
+              <span class="left">ALL DATA SOURCED FROM PUBLIC RECORDS</span>
+              <span class="right">AUSTRALIAFIRST.XYZ</span>
+            </div>
           `;
 
-          document.getElementById('profile-container').innerHTML = html;
-          document.title = `${politician.name} | Australia First`;
+          document.title = p.name.toUpperCase() + ' | Australia First';
 
-          document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-              document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-              document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-              tab.classList.add('active');
-              document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+          // Wire up tabs
+          document.querySelectorAll('.tabs button').forEach(btn => {
+            btn.addEventListener('click', () => {
+              document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+              document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+              btn.classList.add('active');
+              document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
             });
           });
 
         } catch (e) {
-          document.getElementById('profile-container').innerHTML =
-            `<div style="padding:4rem;text-align:center;color:#666">Failed to load profile.</div>`;
+          card.innerHTML = '<div class="loading-state">Failed to load profile.</div>';
         }
       }
 

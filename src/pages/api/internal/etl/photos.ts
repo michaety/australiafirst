@@ -4,7 +4,7 @@ import { jsonResponse, jsonError } from '../../../../lib/api';
 export const prerender = false;
 
 export const POST: APIRoute = async ({ locals }) => {
-  const { DB, R2 } = locals.runtime.env;
+  const { DB, R2, AI } = locals.runtime.env;
 
   try {
     const pending = await DB.prepare(`
@@ -32,15 +32,30 @@ export const POST: APIRoute = async ({ locals }) => {
         const buffer = await res.arrayBuffer();
         const r2Key = `photos/${politicianId}/original.jpg`;
 
-        await R2.put(r2Key, buffer, {
+        // Attempt mugshot-style AI processing, fall back to original
+        let processedBuffer: ArrayBuffer = buffer;
+        try {
+          const uint8 = new Uint8Array(buffer);
+          const result = await AI.run('@cf/stabilityai/stable-diffusion-xl-base-1.0', {
+            prompt: 'police mugshot photo, harsh fluorescent lighting, high contrast, desaturated, gritty, front facing, plain grey background',
+            image: Array.from(uint8),
+            strength: 0.4,
+            num_inference_steps: 8,
+          });
+          processedBuffer = result instanceof Uint8Array ? result.buffer : buffer;
+        } catch {
+          // AI processing failed, use original
+        }
+
+        await R2.put(r2Key, processedBuffer, {
           httpMetadata: { contentType: 'image/jpeg' }
         });
 
         await DB.prepare(`
           UPDATE politician_photos
-          SET status = 'fetched', r2_key = ?, source_url = ?, fetched_at = datetime('now')
+          SET status = 'fetched', r2_key = ?, r2_key_mugshot = ?, source_url = ?, fetched_at = datetime('now')
           WHERE id = ?
-        `).bind(r2Key, photoUrl, row.id).run();
+        `).bind(r2Key, r2Key, photoUrl, row.id).run();
 
         await DB.prepare(`
           UPDATE politicians SET photo_url = ? WHERE id = ?
