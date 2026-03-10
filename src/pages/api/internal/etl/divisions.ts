@@ -3,114 +3,140 @@ import { jsonResponse, jsonError, requireInternalSecret } from '../../../../lib/
 
 export const prerender = false;
 
-const OA_BASE = 'https://www.openaustralia.org.au/api';
-const START_DATE = '2023-01-01';
-const END_DATE = '2024-06-30';
-const MAX_DATES_PER_RUN = 10;
-const KV_KEY_PREFIX = 'etl:divisions:last_date';
+// TheyVoteForYou API — the proper source for Australian parliamentary divisions
+const TVFY_BASE = 'https://theyvoteforyou.org.au/api/v1';
+const MAX_PAGES_PER_RUN = 2; // pages per house per run
+const DIVISIONS_PER_PAGE = 50; // list endpoint is cheap — no detail fetches needed
+const MAX_DETAIL_FETCHES = 3; // detail fetches per run (votes) to stay within limits
+const KV_KEY_PREFIX = 'etl:divisions:page';
 
-interface OADebateEntry {
-  gid?: string;
-  epobject_id?: string;
-  hdate?: string;
-  htype?: string;
-  body?: string;
-  listurl?: string;
+interface TVFYDivisionSummary {
+  id: number;
+  house: string;
+  name: string;
+  date: string;
+  number: number;
+  clock_time: string | null;
+  aye_votes: number;
+  no_votes: number;
+  possible_turnout: number;
+  rebellions: number;
+  edited: boolean;
 }
 
-interface OADivisionDetail {
-  gid?: string;
-  hdate?: string;
-  body?: string;
-  listurl?: string;
-  yes_votes?: Array<{ member_id?: string }>;
-  no_votes?: Array<{ member_id?: string }>;
+interface TVFYVote {
+  member: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    party: string;
+    electorate: string;
+  };
+  vote: string; // 'aye' | 'no' | 'absent' | 'abstention' | 'aye3' | 'no3' (tellers)
+}
+
+interface TVFYDivisionDetail {
+  id: number;
+  house: string;
+  name: string;
+  date: string;
+  number: number;
+  clock_time: string | null;
+  source_url: string;
+  debate_url: string;
+  source_gid: string;
+  rebellions: number;
+  votes: TVFYVote[];
 }
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/** Generate weekly date strings from start to end */
-function generateWeeklyDates(start: string, end: string): string[] {
-  const dates: string[] = [];
-  const cur = new Date(start + 'T00:00:00Z');
-  const endDate = new Date(end + 'T00:00:00Z');
-  while (cur <= endDate) {
-    dates.push(cur.toISOString().slice(0, 10));
-    cur.setUTCDate(cur.getUTCDate() + 7);
-  }
-  return dates;
-}
-
 export async function runDivisionsETL(env: Env) {
   const { DB, KV } = env;
-  const apiKey = env.OPENAUSTRALIA_API_KEY;
+  const apiKey = env.THEYVOTEFORYOU_API_KEY;
 
   if (!apiKey) {
-    throw new Error('OPENAUSTRALIA_API_KEY not set');
+    return {
+      success: false,
+      error: 'THEYVOTEFORYOU_API_KEY not set. Register at https://theyvoteforyou.org.au/users/sign_up then run: npx wrangler secret put THEYVOTEFORYOU_API_KEY',
+      divisions: 0, votes: 0, pagesProcessed: 0,
+    };
   }
 
-  const allDates = generateWeeklyDates(START_DATE, END_DATE);
-
+  const errors: string[] = [];
   let divisionsProcessed = 0;
   let votesProcessed = 0;
   let actionsCreated = 0;
-  let queuedForMapping = 0;
-  let datesProcessed = 0;
+  let pagesProcessed = 0;
+  let detailsFetched = 0;
 
-  for (const house of ['representatives', 'senate'] as const) {
-    const type = house === 'senate' ? 'senate' : 'representatives';
-    const kvKey = `${KV_KEY_PREFIX}:${house}`;
+  // Build name → politician_id lookup
+  const politicians = await DB.prepare(
+    `SELECT id, name FROM politicians`
+  ).all<{ id: string; name: string }>();
 
-    // Resume from last processed date
-    const lastDate = await KV.get(kvKey);
-    let startIdx = 0;
-    if (lastDate) {
-      const idx = allDates.findIndex(d => d > lastDate);
-      if (idx >= 0) startIdx = idx;
-      else continue; // all dates already processed for this house
+  const nameIndex = new Map<string, string>();
+  for (const p of politicians.results) {
+    const parts = p.name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      const first = parts[0].toLowerCase();
+      const last = parts[parts.length - 1].toLowerCase();
+      nameIndex.set(`${first} ${last}`, p.id);
+      nameIndex.set(`${last} ${first}`, p.id);
+      nameIndex.set(last, nameIndex.get(last) || p.id);
     }
+  }
 
-    const batch = allDates.slice(startIdx, startIdx + MAX_DATES_PER_RUN);
-    if (batch.length === 0) continue;
+  function findPoliticianId(firstName: string, lastName: string): string | null {
+    return nameIndex.get(`${firstName.toLowerCase()} ${lastName.toLowerCase()}`)
+      || nameIndex.get(lastName.toLowerCase()) || null;
+  }
 
-    for (const date of batch) {
-      // Fetch debates for this date
-      const listUrl = `${OA_BASE}/getDebates?key=${apiKey}&type=${type}&date=${date}&num=100&output=js`;
+  // PHASE 1: Ingest division summaries (fast — no detail calls)
+  for (const house of ['representatives', 'senate'] as const) {
+    const kvKey = `${KV_KEY_PREFIX}:${house}`;
+    const lastPageStr = await KV.get(kvKey);
+    let startPage = lastPageStr ? parseInt(lastPageStr, 10) + 1 : 1;
+
+    for (let page = startPage; page < startPage + MAX_PAGES_PER_RUN; page++) {
+      const listUrl = `${TVFY_BASE}/divisions.json?key=${encodeURIComponent(apiKey)}&house=${house}&sort=date&per_page=${DIVISIONS_PER_PAGE}&page=${page}`;
       const listRes = await fetch(listUrl, {
         headers: { 'User-Agent': 'AustraliaFirst/1.0 accountability-platform' },
       });
 
       if (!listRes.ok) {
-        console.error(`getDebates failed for ${house} ${date}: ${listRes.status}`);
-        // Save progress and move on
-        await KV.put(kvKey, date);
-        datesProcessed++;
-        continue;
+        if (listRes.status === 404) {
+          await KV.put(kvKey, '0');
+          break;
+        }
+        if (listRes.status === 401) {
+          return {
+            success: false,
+            error: 'THEYVOTEFORYOU_API_KEY is invalid. Register at https://theyvoteforyou.org.au/users/sign_up then run: npx wrangler secret put THEYVOTEFORYOU_API_KEY',
+            divisions: divisionsProcessed, votes: votesProcessed, pagesProcessed,
+          };
+        }
+        const body = await listRes.text().catch(() => '');
+        errors.push(`TVFY list failed for ${house} page ${page}: ${listRes.status} ${body.slice(0, 200)}`);
+        break;
       }
 
-      const entries = await listRes.json() as OADebateEntry[];
-      if (!Array.isArray(entries)) {
-        await KV.put(kvKey, date);
-        datesProcessed++;
-        continue;
+      const summaries = await listRes.json() as TVFYDivisionSummary[];
+      if (!Array.isArray(summaries) || summaries.length === 0) {
+        await KV.put(kvKey, '0');
+        break;
       }
 
-      // htype "12" = division records
-      const divisionEntries = entries.filter(e => e.htype === '12' && e.gid);
+      // Batch insert all summaries
+      const stmts: D1PreparedStatement[] = [];
+      for (const s of summaries) {
+        const divisionId = `tvfy_${s.id}`;
+        const title = stripHtml(s.name).slice(0, 200) || 'Parliamentary Division';
+        const sourceUrl = `https://theyvoteforyou.org.au/divisions/${s.id}`;
 
-      for (const entry of divisionEntries) {
-        const gid = entry.gid!;
-        const divisionId = `oa_div_${gid.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-        const divDate = entry.hdate || date;
-        const motionHtml = entry.body || '';
-        const title = stripHtml(motionHtml).slice(0, 200) || 'Parliamentary Division';
-        const motion = stripHtml(motionHtml);
-        const sourceUrl = entry.listurl || `https://www.openaustralia.org.au/debates/?id=${gid}`;
-
-        // Upsert division record
-        await DB.prepare(`
+        stmts.push(DB.prepare(`
           INSERT INTO divisions (id, external_id, chamber, date, title, motion, source_url)
           VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
@@ -118,108 +144,93 @@ export async function runDivisionsETL(env: Env) {
             motion = excluded.motion,
             source_url = excluded.source_url,
             updated_at = datetime('now')
-        `).bind(divisionId, gid, house, divDate, title, motion, sourceUrl).run();
+        `).bind(divisionId, String(s.id), house, s.date, title, title, sourceUrl));
 
-        divisionsProcessed++;
-
-        await DB.prepare(`
+        stmts.push(DB.prepare(`
           INSERT OR IGNORE INTO mapping_queue (division_id, status)
-          VALUES (?, 'new')
-        `).bind(divisionId).run();
-
-        const queueRow = await DB.prepare(
-          `SELECT status FROM mapping_queue WHERE division_id = ? AND status = 'new'`
-        ).bind(divisionId).first();
-        if (queueRow) queuedForMapping++;
-
-        // Fetch individual debate to get vote lists
-        const detailUrl = `${OA_BASE}/getDebates?key=${apiKey}&gid=${encodeURIComponent(gid)}&output=js`;
-        const detailRes = await fetch(detailUrl, {
-          headers: { 'User-Agent': 'AustraliaFirst/1.0 accountability-platform' },
-        });
-
-        if (!detailRes.ok) {
-          console.error(`getDebates detail failed for gid=${gid}: ${detailRes.status}`);
-          continue;
-        }
-
-        const detailData = await detailRes.json() as OADivisionDetail[];
-        if (!Array.isArray(detailData) || detailData.length === 0) continue;
-
-        // Find the entry with vote data (may be the first or one matching the gid)
-        const voteEntry = detailData.find(d => d.yes_votes || d.no_votes) || detailData[0];
-
-        // Process YES votes
-        const yesVotes = voteEntry.yes_votes || [];
-        for (const v of yesVotes) {
-          if (!v.member_id) continue;
-          const politicianId = `oa_${v.member_id}`;
-
-          await DB.prepare(`
-            INSERT INTO votes (division_id, politician_id, vote, source_url)
-            VALUES (?, ?, 'aye', ?)
-            ON CONFLICT(division_id, politician_id) DO UPDATE SET
-              vote = excluded.vote
-          `).bind(divisionId, politicianId, sourceUrl).run();
-
-          votesProcessed++;
-
-          const actionId = `vote_${politicianId}_${divisionId}`;
-          await DB.prepare(`
-            INSERT INTO actions (id, politician_id, title, description, date, category, source_url)
-            VALUES (?, ?, ?, ?, ?, 'voting-record', ?)
-            ON CONFLICT(id) DO UPDATE SET
-              title = excluded.title,
-              description = excluded.description
-          `).bind(actionId, politicianId, `Voted AYE: ${title}`, motion || title, divDate, sourceUrl).run();
-
-          actionsCreated++;
-        }
-
-        // Process NO votes
-        const noVotes = voteEntry.no_votes || [];
-        for (const v of noVotes) {
-          if (!v.member_id) continue;
-          const politicianId = `oa_${v.member_id}`;
-
-          await DB.prepare(`
-            INSERT INTO votes (division_id, politician_id, vote, source_url)
-            VALUES (?, ?, 'no', ?)
-            ON CONFLICT(division_id, politician_id) DO UPDATE SET
-              vote = excluded.vote
-          `).bind(divisionId, politicianId, sourceUrl).run();
-
-          votesProcessed++;
-
-          const actionId = `vote_${politicianId}_${divisionId}`;
-          await DB.prepare(`
-            INSERT INTO actions (id, politician_id, title, description, date, category, source_url)
-            VALUES (?, ?, ?, ?, ?, 'voting-record', ?)
-            ON CONFLICT(id) DO UPDATE SET
-              title = excluded.title,
-              description = excluded.description
-          `).bind(actionId, politicianId, `Voted NO: ${title}`, motion || title, divDate, sourceUrl).run();
-
-          actionsCreated++;
-        }
+          VALUES (?, 'pending_votes')
+        `).bind(divisionId));
       }
+      await DB.batch(stmts);
+      divisionsProcessed += summaries.length;
 
-      // Save progress after each date
-      await KV.put(kvKey, date);
-      datesProcessed++;
+      await KV.put(kvKey, String(page));
+      pagesProcessed++;
     }
+  }
+
+  // PHASE 2: Fetch vote details for divisions that need them (limited per run)
+  const pending = await DB.prepare(
+    `SELECT d.id, d.external_id, d.chamber, d.date, d.title, d.source_url
+     FROM divisions d
+     JOIN mapping_queue mq ON mq.division_id = d.id
+     WHERE mq.status = 'pending_votes'
+     LIMIT ?`
+  ).bind(MAX_DETAIL_FETCHES).all<{
+    id: string; external_id: string; chamber: string;
+    date: string; title: string; source_url: string;
+  }>();
+
+  for (const div of pending.results) {
+    const detailUrl = `${TVFY_BASE}/divisions/${div.external_id}.json?key=${encodeURIComponent(apiKey)}`;
+    const detailRes = await fetch(detailUrl, {
+      headers: { 'User-Agent': 'AustraliaFirst/1.0 accountability-platform' },
+    });
+
+    if (!detailRes.ok) {
+      errors.push(`Detail fetch failed for ${div.id}: ${detailRes.status}`);
+      continue;
+    }
+
+    const detail = await detailRes.json() as TVFYDivisionDetail;
+    const stmts: D1PreparedStatement[] = [];
+
+    for (const v of detail.votes || []) {
+      if (!v.member) continue;
+      const politicianId = findPoliticianId(v.member.first_name, v.member.last_name);
+      if (!politicianId) continue;
+
+      let voteValue: string;
+      if (v.vote === 'aye' || v.vote === 'aye3') voteValue = 'aye';
+      else if (v.vote === 'no' || v.vote === 'no3') voteValue = 'no';
+      else if (v.vote === 'abstention') voteValue = 'abstain';
+      else voteValue = 'absent';
+
+      stmts.push(DB.prepare(`
+        INSERT INTO votes (division_id, politician_id, vote, source_url)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(division_id, politician_id) DO UPDATE SET vote = excluded.vote
+      `).bind(div.id, politicianId, voteValue, div.source_url));
+
+      const actionId = `vote_${politicianId}_${div.id}`;
+      stmts.push(DB.prepare(`
+        INSERT INTO actions (id, politician_id, title, description, date, category, source_url)
+        VALUES (?, ?, ?, ?, ?, 'voting-record', ?)
+        ON CONFLICT(id) DO UPDATE SET title = excluded.title, description = excluded.description
+      `).bind(actionId, politicianId, `Voted ${voteValue.toUpperCase()}: ${div.title}`, div.title, div.date, div.source_url));
+
+      votesProcessed++;
+      actionsCreated++;
+    }
+
+    // Mark as processed
+    stmts.push(DB.prepare(
+      `UPDATE mapping_queue SET status = 'done' WHERE division_id = ?`
+    ).bind(div.id));
+
+    await DB.batch(stmts);
+    detailsFetched++;
   }
 
   return {
     success: true,
-    datesProcessed,
+    pagesProcessed,
     divisions: divisionsProcessed,
+    detailsFetched,
     votes: votesProcessed,
     actions: actionsCreated,
-    queued: queuedForMapping,
-    note: datesProcessed < allDates.length * 2
-      ? 'Partial run — call again to continue processing more dates.'
-      : 'All dates processed.',
+    errors: errors.length > 0 ? errors : undefined,
+    note: 'Call repeatedly to process more pages and vote details.',
   };
 }
 

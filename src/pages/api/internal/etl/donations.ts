@@ -48,15 +48,30 @@ function hashId(parts: string[]): string {
 
 export async function runDonationsETL(env: Env) {
   const { DB } = env;
-  const apiKey = env.OPENAUSTRALIA_API_KEY;
+  const apiKey = env.THEYVOTEFORYOU_API_KEY;
+
+  if (!apiKey) {
+    return {
+      success: false,
+      error: 'THEYVOTEFORYOU_API_KEY not set. Register at https://theyvoteforyou.org.au/users/sign_up then run: npx wrangler secret put THEYVOTEFORYOU_API_KEY',
+      processed: 0, matched: 0, unmatched: 0,
+    };
+  }
 
   // Fetch people from TheyVoteForYou
   const peopleRes = await fetch(
-    `${TVFY_BASE}/people.json?key=${apiKey}&per_page=200`,
+    `${TVFY_BASE}/people.json?key=${encodeURIComponent(apiKey)}&per_page=200`,
     { headers: { 'User-Agent': 'AustraliaFirst/1.0 accountability-platform' } },
   );
 
   if (!peopleRes.ok) {
+    if (peopleRes.status === 401) {
+      return {
+        success: false,
+        error: 'THEYVOTEFORYOU_API_KEY is invalid. Register at https://theyvoteforyou.org.au/users/sign_up then run: npx wrangler secret put THEYVOTEFORYOU_API_KEY',
+        processed: 0, matched: 0, unmatched: 0,
+      };
+    }
     throw new Error(`TVFY people fetch failed: ${peopleRes.status}`);
   }
 
