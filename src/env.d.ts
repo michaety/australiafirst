@@ -7,6 +7,7 @@ interface Env {
   AI: Ai;
   ADMIN_PASSWORD: string;
   INTERNAL_SECRET?: string;
+  OPENAUSTRALIA_API_KEY: string;
 }
 
 type Runtime = import("@astrojs/cloudflare").Runtime<Env>;

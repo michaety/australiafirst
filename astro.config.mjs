@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from "astro/config";
+import { defineConfig, passthroughImageService } from "astro/config";
 import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 
@@ -9,9 +9,20 @@ import cloudflare from "@astrojs/cloudflare";
 export default defineConfig({
 	site: "https://example.com",
 	integrations: [mdx(), sitemap()],
+	image: {
+		service: passthroughImageService(),
+	},
+	vite: {
+		build: {
+			rollupOptions: {
+				external: ["sharp"],
+			},
+		},
+	},
 	adapter: cloudflare({
 		platformProxy: {
 			enabled: true,
 		},
+		imageService: "compile",
 	}),
 });

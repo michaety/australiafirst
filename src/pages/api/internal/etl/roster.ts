@@ -5,7 +5,7 @@ export const prerender = false;
 
 export const POST: APIRoute = async ({ locals }) => {
   const { DB } = locals.runtime.env;
-  const apiKey = (locals.runtime.env as Record<string, string>).OPENAUSTRALIA_API_KEY;
+  const apiKey = locals.runtime.env.OPENAUSTRALIA_API_KEY;
 
   if (!apiKey) {
     return jsonError('OPENAUSTRALIA_API_KEY not set', 500);
