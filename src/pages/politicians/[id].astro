@@ -252,10 +252,10 @@ const { id } = Astro.params;
 
             // Tabs
             + '<div style="display:flex;border-bottom:1px solid #1a1a1a;background:#080808;">'
-              + '<button id="tab-btn-actions" onclick="switchTab(\'actions\')" style="' + tabBtnBase + 'background:#111;border-bottom-color:#c8001a;color:#f0f0f0;">ACTIONS</button>'
-              + '<button id="tab-btn-donors" onclick="switchTab(\'donors\')" style="' + tabBtnBase + 'background:transparent;color:#444;">FOLLOW THE MONEY</button>'
-              + '<button id="tab-btn-promises" onclick="switchTab(\'promises\')" style="' + tabBtnBase + 'background:transparent;color:#444;">THEY PROMISED</button>'
-              + '<button id="tab-btn-foreign" onclick="switchTab(\'foreign\')" style="' + tabBtnBase + 'background:transparent;color:#444;">FOREIGN TIES</button>'
+              + '<button id="tab-btn-actions" style="' + tabBtnBase + 'background:#111;border-bottom-color:#c8001a;color:#f0f0f0;">ACTIONS</button>'
+              + '<button id="tab-btn-donors" style="' + tabBtnBase + 'background:transparent;color:#444;">FOLLOW THE MONEY</button>'
+              + '<button id="tab-btn-promises" style="' + tabBtnBase + 'background:transparent;color:#444;">THEY PROMISED</button>'
+              + '<button id="tab-btn-foreign" style="' + tabBtnBase + 'background:transparent;color:#444;">FOREIGN TIES</button>'
             + '</div>'
 
             // Panels
@@ -284,6 +284,10 @@ const { id } = Astro.params;
               + '<span style="color:#2a2a2a;font-size:10px;letter-spacing:1px;">ALL DATA SOURCED FROM PUBLIC RECORDS</span>'
               + '<span style="color:#c8001a;font-size:10px;letter-spacing:2px;font-weight:900;">AUSTRALIAFIRST.XYZ</span>'
             + '</div>';
+
+          tabNames.forEach(function(t) {
+            document.getElementById('tab-btn-' + t).addEventListener('click', function() { switchTab(t); });
+          });
 
           document.title = p.name.toUpperCase() + ' | Australia First';
 
