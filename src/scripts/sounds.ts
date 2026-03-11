@@ -1,6 +1,6 @@
 // ── Preload audio files ────────────────────────────────────────────────────
 
-const CLIP_DURATION = 2; // seconds — hard cap for any file that's too long
+const CLIP_DURATION = 1; // seconds — hard cap for any file that's too long
 
 function makeSound(path: string, volume = 1.0) {
   if (typeof window === 'undefined') return null;

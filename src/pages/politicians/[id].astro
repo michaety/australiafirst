@@ -52,8 +52,8 @@ const { id } = Astro.params;
   <body style="margin:0;padding:0;background:#050505;color:#e8e8e8;font-family:'Courier New',monospace;">
     <button class="back-btn" id="back-btn">&#8592; BACK TO REGISTER</button>
     <script>
-      import { playBeep, playSwipe, playAlert, playError } from '../../scripts/sounds';
-      (window as any).__sounds = { playBeep, playSwipe, playAlert, playError };
+      import { playBeep, playSwipe, playAlert, playError, playTypeTick, playAccessGranted } from '../../scripts/sounds';
+      (window as any).__sounds = { playBeep, playSwipe, playAlert, playError, playTypeTick, playAccessGranted };
       document.getElementById('back-btn')!.addEventListener('click', () => {
         playBeep();
         if (window.history.length > 1) { setTimeout(() => window.history.back(), 100); }
@@ -387,16 +387,9 @@ const { id } = Astro.params;
       // ── Typewriter helpers ──────────────────────────────────────────────────
 
       function playTypeTick() {
-        try {
-          var ctx = window.__typectx = window.__typectx || new (window.AudioContext || window.webkitAudioContext)();
-          var osc = ctx.createOscillator(); var g = ctx.createGain();
-          osc.connect(g); g.connect(ctx.destination);
-          osc.type = 'square';
-          osc.frequency.value = 500 + Math.random() * 140;
-          g.gain.setValueAtTime(0.05, ctx.currentTime);
-          g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.05);
-          osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.05);
-        } catch(e) {}
+        if (window.__sounds && window.__sounds.playTypeTick) {
+          window.__sounds.playTypeTick();
+        }
       }
 
       function typeInto(el, text, speed) {

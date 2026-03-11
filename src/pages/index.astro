@@ -88,25 +88,17 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
       /* ── Glowing record button ── */
       .record-o {
         display: inline-block;
-        border-radius: 50%;
-        background: radial-gradient(circle at 36% 32%, #ff5555 0%, #dd0000 48%, #6e0000 100%);
+        border-radius: 3px;
+        background: #cc0000;
         vertical-align: middle;
         position: relative;
         top: -0.04em;
+        margin-left: 0.25em;
         opacity: 0;
         transition: opacity 0.15s;
         animation: rec-pulse 1.9s ease-in-out infinite;
       }
       .record-o.typed { opacity: 1; }
-
-      .record-o::before {
-        content: '';
-        position: absolute;
-        width: 36%; height: 36%;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(255,255,255,0.5) 0%, transparent 100%);
-        top: 13%; left: 16%;
-      }
 
       @keyframes rec-pulse {
         0%,100% {
@@ -198,7 +190,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
         const wrap = document.getElementById('title');
         const dot  = document.querySelector('.record-o') as HTMLElement | null;
         if (!wrap || !dot) return;
-        const px = wrap.getBoundingClientRect().height * 0.72;
+        const px = wrap.getBoundingClientRect().height * 0.45;
         dot.style.width  = `${px}px`;
         dot.style.height = `${px}px`;
       }
@@ -213,7 +205,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
       interface Slot { el: HTMLElement; isGap: boolean; isRecord: boolean }
       const slots: Slot[] = [];
 
-      const words = [['O','N'], ['T','H','E'], ['R','E','C','●','R','D']];
+      const words = [['O','N'], ['T','H','E'], ['R','E','C','O','R','D'], ['●']];
 
       words.forEach((word, wi) => {
         if (wi > 0) {
