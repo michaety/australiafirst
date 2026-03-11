@@ -20,13 +20,7 @@ export async function runRosterETL(env: Env) {
     throw new Error(`OpenAustralia API error: ${repsRes.status} / ${sensRes.status}`);
   }
 
-  const repsData = await repsRes.json() as { member?: unknown[] } | unknown[];
-  const sensData = await sensRes.json() as { member?: unknown[] } | unknown[];
-
-  const reps = (Array.isArray(repsData) ? repsData : (repsData as { member?: unknown[] }).member) ?? [];
-  const sens = (Array.isArray(sensData) ? sensData : (sensData as { member?: unknown[] }).member) ?? [];
-
-  const members = [...reps, ...sens] as Array<{
+  type OAMember = {
     member_id?: string;
     full_name?: string;
     first_name?: string;
@@ -35,7 +29,21 @@ export async function runRosterETL(env: Env) {
     constituency?: string;
     house?: string;
     image?: string;
-  }>;
+    _chamber: 'senate' | 'representatives';
+  };
+
+  const repsData = await repsRes.json() as { member?: unknown[] } | unknown[];
+  const sensData = await sensRes.json() as { member?: unknown[] } | unknown[];
+
+  const reps = (Array.isArray(repsData) ? repsData : (repsData as { member?: unknown[] }).member) ?? [];
+  const sens = (Array.isArray(sensData) ? sensData : (sensData as { member?: unknown[] }).member) ?? [];
+
+  // Tag chamber by which endpoint the member came from — don't rely on member.house
+  // since some OA endpoints omit that field.
+  const members: OAMember[] = [
+    ...(reps as OAMember[]).map(m => ({ ...m, _chamber: 'representatives' as const })),
+    ...(sens as OAMember[]).map(m => ({ ...m, _chamber: 'senate' as const })),
+  ];
 
   let processedCount = 0;
 
@@ -44,7 +52,7 @@ export async function runRosterETL(env: Env) {
 
     const id = `oa_${member.member_id}`;
     const name = member.full_name ?? [member.first_name, member.last_name].filter(Boolean).join(' ');
-    const chamber = member.house === 'senate' ? 'senate' : 'representatives';
+    const chamber = member._chamber;
     const partyName = member.party ?? null;
     const electorate = member.constituency ?? null;
     const imageUrl = member.image ?? null;

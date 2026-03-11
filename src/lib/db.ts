@@ -100,7 +100,22 @@ export async function getPoliticians(
     SELECT p.id, p.name, p.chamber, p.party_id, p.electorate, p.jurisdiction,
            p.photo_url, p.mugshot_r2_key, p.bio, p.website, p.social_media,
            p.risk_score, p.risk_label,
-           pt.name AS party_name, pt.abbreviation AS party_abbreviation${selectExtra}
+           pt.name AS party_name,
+           COALESCE(
+             pt.abbreviation,
+             CASE
+               WHEN pt.name LIKE '%Labor%' OR pt.name LIKE '%Labour%'            THEN 'ALP'
+               WHEN pt.name LIKE '%Liberal National%'                             THEN 'LNP'
+               WHEN pt.name LIKE '%Liberal%'                                      THEN 'LP'
+               WHEN pt.name LIKE '%National%'                                     THEN 'NP'
+               WHEN pt.name LIKE '%Green%'                                        THEN 'GRN'
+               WHEN pt.name LIKE '%One Nation%' OR pt.name LIKE '%Hanson%'       THEN 'PHON'
+               WHEN pt.name LIKE '%Katter%'                                       THEN 'KAP'
+               WHEN pt.name LIKE '%United Australia%'                             THEN 'UAP'
+               WHEN pt.name LIKE '%Independent%' OR p.party_id = 'party_independent' THEN 'IND'
+               ELSE pt.name
+             END
+           ) AS party_abbreviation${selectExtra}
     FROM politicians p
     LEFT JOIN parties pt ON pt.id = p.party_id
     ${joinExtra}
@@ -128,7 +143,22 @@ export async function getPoliticianById(db: D1Database, id: string): Promise<Pol
   const result = await db.prepare(`
     SELECT p.id, p.name, p.chamber, p.party_id, p.electorate, p.jurisdiction,
            p.photo_url, p.mugshot_r2_key, p.bio, p.website, p.social_media,
-           pt.name AS party_name, pt.abbreviation AS party_abbreviation
+           pt.name AS party_name,
+           COALESCE(
+             pt.abbreviation,
+             CASE
+               WHEN pt.name LIKE '%Labor%' OR pt.name LIKE '%Labour%'            THEN 'ALP'
+               WHEN pt.name LIKE '%Liberal National%'                             THEN 'LNP'
+               WHEN pt.name LIKE '%Liberal%'                                      THEN 'LP'
+               WHEN pt.name LIKE '%National%'                                     THEN 'NP'
+               WHEN pt.name LIKE '%Green%'                                        THEN 'GRN'
+               WHEN pt.name LIKE '%One Nation%' OR pt.name LIKE '%Hanson%'       THEN 'PHON'
+               WHEN pt.name LIKE '%Katter%'                                       THEN 'KAP'
+               WHEN pt.name LIKE '%United Australia%'                             THEN 'UAP'
+               WHEN pt.name LIKE '%Independent%' OR p.party_id = 'party_independent' THEN 'IND'
+               ELSE pt.name
+             END
+           ) AS party_abbreviation
     FROM politicians p
     LEFT JOIN parties pt ON pt.id = p.party_id
     WHERE p.id = ?
