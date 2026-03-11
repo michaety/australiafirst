@@ -15,7 +15,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     const data = await withCache(KV, cacheKey, async () => {
       const profile = await getPoliticianProfile(DB, id);
       if (!profile) return null;
-      const { politician, actions, donations, promises, foreignTies } = profile;
+      const { politician, actions, donations, promises, foreignTies, partyDonations } = profile;
       return {
         updatedAt: new Date().toISOString(),
         politician: {
@@ -24,6 +24,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
           chamber: politician.chamber,
           party: politician.party_abbreviation ?? politician.party_name ?? null,
           partyName: politician.party_name ?? null,
+          partyId: politician.party_id ?? null,
           electorate: politician.electorate,
           jurisdiction: politician.jurisdiction,
           photoUrl: politician.photo_url,
@@ -70,6 +71,15 @@ export const GET: APIRoute = async ({ params, locals }) => {
           dateStart: f.date_start,
           dateEnd: f.date_end,
           sourceUrl: f.source_url,
+        })),
+        partyDonations: partyDonations.map((d) => ({
+          id: d.id,
+          donorName: d.donor_name,
+          amountCents: d.amount_cents,
+          year: d.year,
+          source: d.source,
+          sourceUrl: d.source_url,
+          notes: d.notes,
         })),
       };
     }, 60);

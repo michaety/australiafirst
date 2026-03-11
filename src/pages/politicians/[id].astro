@@ -112,6 +112,8 @@ const { id } = Astro.params;
           var promises = data.promises || [];
           var foreignTies = data.foreignTies || [];
           var policyScores = policyData.policyScores || [];
+          var partyDonations = data.partyDonations || [];
+          var isPartyMember = p.partyId && p.partyId !== 'party_independent';
 
           var caseNum = 'AF-' + (p.id || '').replace(/[^0-9]/g, '').slice(0, 6);
           var chamberLabel = p.chamber === 'senate' ? 'Senator' : 'Member of Parliament';
@@ -144,9 +146,9 @@ const { id } = Astro.params;
 
           // Build donations HTML
           var donationsHtml = '';
-          if (donations.length === 0) {
+          if (donations.length === 0 && partyDonations.length === 0) {
             donationsHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No donation records found.</div>';
-          } else {
+          } else if (donations.length > 0) {
             donations.forEach(function(d) {
               donationsHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:8px;">'
                 + '<div style="display:flex;gap:10px;align-items:center;">'
@@ -157,6 +159,22 @@ const { id } = Astro.params;
                 + '</div>';
             });
             donationsHtml += '<div style="color:#333;font-size:10px;margin-top:4px;">Source: Australian Electoral Commission transparency.aec.gov.au</div>';
+          } else {
+            // Party donations fallback
+            donationsHtml += '<div style="background:#111;border:1px solid #1e1e1e;padding:10px 12px;margin-bottom:12px;">'
+              + '<div style="color:#ff8c00;font-size:11px;font-weight:900;letter-spacing:1px;margin-bottom:4px;">⚠ PARTY DISCLOSURES</div>'
+              + '<div style="color:#888;font-size:11px;line-height:1.5;">Donations to <strong style="color:#ccc;">' + esc(p.partyName || p.party || 'their party') + '</strong> — individual MP disclosures not required for party members.</div>'
+              + '</div>';
+            partyDonations.forEach(function(d) {
+              donationsHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:8px;">'
+                + '<div style="display:flex;gap:10px;align-items:center;">'
+                + '<span style="font-size:14px;">' + donorFlag(d.amountCents) + '</span>'
+                + '<div><div style="color:#ccc;font-size:12px;">' + esc(d.donorName) + '</div>'
+                + '<div style="color:#444;font-size:10px;">' + (d.year || '') + '</div></div></div>'
+                + '<div style="color:#c8001a;font-size:14px;font-weight:900;">' + formatAmount(d.amountCents) + '</div>'
+                + '</div>';
+            });
+            donationsHtml += '<div style="color:#333;font-size:10px;margin-top:4px;">Source: Australian Electoral Commission — Party Annual Returns transparency.aec.gov.au</div>';
           }
 
           // Build promises HTML
@@ -277,7 +295,7 @@ const { id } = Astro.params;
                 + '</div>'
                 + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">'
                   + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + actions.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">ACTIONS</div></div>'
-                  + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + donations.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">DONORS</div></div>'
+                  + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + (donations.length || partyDonations.length) + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">DONORS</div></div>'
                   + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + brokenCount + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">BROKEN PROMISES</div></div>'
                   + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + foreignTies.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">FOREIGN LINKS</div></div>'
                 + '</div>'

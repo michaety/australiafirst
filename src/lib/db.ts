@@ -31,7 +31,8 @@ export interface Action {
 
 export interface Donation {
   id: string;
-  politician_id: string;
+  politician_id: string | null;
+  party_id: string | null;
   donor_name: string;
   amount_cents: number | null;
   year: number | null;
@@ -149,6 +150,13 @@ export async function getDonations(db: D1Database, politicianId: string): Promis
   return result.results ?? [];
 }
 
+export async function getPartyDonations(db: D1Database, partyId: string): Promise<Donation[]> {
+  const result = await db.prepare(
+    `SELECT * FROM donations WHERE party_id = ? AND politician_id IS NULL ORDER BY amount_cents DESC LIMIT 50`,
+  ).bind(partyId).all<Donation>();
+  return result.results ?? [];
+}
+
 export async function getPromises(db: D1Database, politicianId: string): Promise<Promise_[]> {
   const result = await db.prepare(
     `SELECT * FROM promises WHERE politician_id = ? ORDER BY made_date DESC`,
@@ -172,5 +180,10 @@ export async function getPoliticianProfile(db: D1Database, id: string) {
     getPromises(db, id),
     getForeignTies(db, id),
   ]);
-  return { politician, actions, donations, promises, foreignTies };
+  // For party-affiliated MPs with no individual donations, fetch party-level donations
+  let partyDonations: Donation[] = [];
+  if (politician.party_id && politician.party_id !== 'party_independent' && donations.length === 0) {
+    partyDonations = await getPartyDonations(db, politician.party_id);
+  }
+  return { politician, actions, donations, promises, foreignTies, partyDonations };
 }
