@@ -183,7 +183,11 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
     <div class="status-line">ONTHERECORD.FYI &mdash; FEDERAL POLITICIAN ACCOUNTABILITY REGISTER</div>
 
     <script>
-      import { playBeep, playTypeTick, playAccessGranted } from '../scripts/sounds';
+      import { playBeep, playTypeTick, playAccessGranted, unlockAudio } from '../scripts/sounds';
+
+      // Unlock audio on first user gesture so typewriter sounds work
+      const _unlock = () => { unlockAudio(); ['click','touchstart','keydown'].forEach(e => document.removeEventListener(e, _unlock)); };
+      ['click','touchstart','keydown'].forEach(e => document.addEventListener(e, _unlock, { passive: true }));
 
       // ── Size the record button via JS (no CSS width/height) ────────────────
       function sizeRecordBtn() {

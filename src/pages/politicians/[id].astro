@@ -52,8 +52,8 @@ const { id } = Astro.params;
   <body style="margin:0;padding:0;background:#050505;color:#e8e8e8;font-family:'Courier New',monospace;">
     <button class="back-btn" id="back-btn">&#8592; BACK TO REGISTER</button>
     <script>
-      import { playBeep, playSwipe, playAlert, playError, playTypeTick, playAccessGranted } from '../../scripts/sounds';
-      (window as any).__sounds = { playBeep, playSwipe, playAlert, playError, playTypeTick, playAccessGranted };
+      import { playBeep, playSwipe, playAlert, playError, playTypeTickName, playTypeTickDays, playAccessGranted } from '../../scripts/sounds';
+      (window as any).__sounds = { playBeep, playSwipe, playAlert, playError, playTypeTickName, playTypeTickDays, playAccessGranted };
       document.getElementById('back-btn')!.addEventListener('click', () => {
         playBeep();
         if (window.history.length > 1) { setTimeout(() => window.history.back(), 100); }
@@ -386,14 +386,9 @@ const { id } = Astro.params;
 
       // ── Typewriter helpers ──────────────────────────────────────────────────
 
-      function playTypeTick() {
-        if (window.__sounds && window.__sounds.playTypeTick) {
-          window.__sounds.playTypeTick();
-        }
-      }
-
-      function typeInto(el, text, speed) {
+      function typeInto(el, text, speed, soundFn) {
         speed = speed || 45;
+        soundFn = soundFn || function() {};
         return new Promise(function(resolve) {
           el.textContent = '';
           var cursor = document.createElement('span');
@@ -408,7 +403,7 @@ const { id } = Astro.params;
             }
             var tn = document.createTextNode(text[i]);
             el.insertBefore(tn, cursor);
-            if (text[i] !== ' ') playTypeTick();
+            if (text[i] !== ' ') soundFn();
             i++;
             setTimeout(tick, speed + (Math.random() * 18 - 9));
           }
@@ -620,7 +615,9 @@ const { id } = Astro.params;
 
           // ── Typewriter reveals ──────────────────────────────────────────────
           var nameEl = document.getElementById('profile-name-val');
-          if (nameEl) typeInto(nameEl, (p.name || '').toUpperCase(), 55);
+          var nameSoundFn = function() { if (window.__sounds && window.__sounds.playTypeTickName) window.__sounds.playTypeTickName(); };
+          var daysSoundFn = function() { if (window.__sounds && window.__sounds.playTypeTickDays) window.__sounds.playTypeTickDays(); };
+          if (nameEl) typeInto(nameEl, (p.name || '').toUpperCase(), 55, nameSoundFn);
 
           var daysEl = document.getElementById('days-in-office-val');
           if (daysEl) {
@@ -633,7 +630,7 @@ const { id } = Astro.params;
             } else {
               daysText = p.jurisdiction || 'Unknown';
             }
-            typeInto(daysEl, daysText, 60);
+            typeInto(daysEl, daysText, 60, daysSoundFn);
           }
 
           // Load AI summary for the default (actions) tab immediately
