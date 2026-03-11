@@ -32,6 +32,21 @@ const { id } = Astro.params;
         50% { opacity: 0.85; }
       }
       .ai-loading { animation: ai-pulse 1.6s ease-in-out infinite; }
+
+      /* ── Typewriter effect for profile fields ── */
+      @keyframes type-cursor-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+      .type-field-cursor {
+        display: inline-block;
+        width: 0.6em; height: 0.85em;
+        background: #cc0000;
+        vertical-align: bottom;
+        margin-left: 2px;
+        animation: type-cursor-blink 0.7s step-end infinite;
+      }
+      .type-field-cursor.done { display: none; }
     </style>
   </head>
   <body style="margin:0;padding:0;background:#050505;color:#e8e8e8;font-family:'Courier New',monospace;">
@@ -369,6 +384,45 @@ const { id } = Astro.params;
         return html;
       }
 
+      // ── Typewriter helpers ──────────────────────────────────────────────────
+
+      function playTypeTick() {
+        try {
+          var ctx = window.__typectx = window.__typectx || new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator(); var g = ctx.createGain();
+          osc.connect(g); g.connect(ctx.destination);
+          osc.type = 'square';
+          osc.frequency.value = 500 + Math.random() * 140;
+          g.gain.setValueAtTime(0.05, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.05);
+          osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.05);
+        } catch(e) {}
+      }
+
+      function typeInto(el, text, speed) {
+        speed = speed || 45;
+        return new Promise(function(resolve) {
+          el.textContent = '';
+          var cursor = document.createElement('span');
+          cursor.className = 'type-field-cursor';
+          el.appendChild(cursor);
+          var i = 0;
+          function tick() {
+            if (i >= text.length) {
+              cursor.classList.add('done');
+              resolve();
+              return;
+            }
+            var tn = document.createTextNode(text[i]);
+            el.insertBefore(tn, cursor);
+            if (text[i] !== ' ') playTypeTick();
+            i++;
+            setTimeout(tick, speed + (Math.random() * 18 - 9));
+          }
+          setTimeout(tick, 80);
+        });
+      }
+
       // ── Tab switching + AI lazy load ────────────────────────────────────────
 
       var tabNames = ['actions', 'donors', 'promises', 'foreign', 'policy'];
@@ -513,14 +567,14 @@ const { id } = Astro.params;
                   + '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;"></div>'
                 + '</div>'
                 + '<div style="background:#0a0a0a;border-top:1px solid #1e1e1e;padding:8px;text-align:center;">'
-                  + '<div style="color:#c8001a;font-size:10px;letter-spacing:2px;margin-bottom:3px;">BOOKING DATE</div>'
-                  + '<div style="color:#666;font-size:11px;">Since ' + esc(p.jurisdiction || 'Unknown') + '</div>'
+                  + '<div style="color:#c8001a;font-size:10px;letter-spacing:2px;margin-bottom:3px;">DAYS IN OFFICE</div>'
+                  + '<div id="days-in-office-val" style="color:#666;font-size:11px;">—</div>'
                 + '</div>'
               + '</div>'
               + '<div style="flex:1;padding:20px;border-left:1px solid #1a1a1a;display:flex;flex-direction:column;gap:12px;">'
                 + '<div>'
                   + '<div style="color:#444;font-size:10px;letter-spacing:3px;margin-bottom:4px;">FULL NAME</div>'
-                  + '<div style="color:#f0f0f0;font-size:22px;font-weight:900;line-height:1.1;letter-spacing:-0.5px;">' + esc(p.name).toUpperCase() + '</div>'
+                  + '<div id="profile-name-val" style="color:#f0f0f0;font-size:22px;font-weight:900;line-height:1.1;letter-spacing:-0.5px;">' + esc(p.name).toUpperCase() + '</div>'
                 + '</div>'
                 + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
                   + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">OFFICE</div><div style="color:#aaa;font-size:12px;">' + esc(chamberLabel) + '</div></div>'
@@ -570,6 +624,24 @@ const { id } = Astro.params;
           tabNames.forEach(function(t) {
             document.getElementById('tab-btn-' + t).addEventListener('click', function() { switchTab(t); });
           });
+
+          // ── Typewriter reveals ──────────────────────────────────────────────
+          var nameEl = document.getElementById('profile-name-val');
+          if (nameEl) typeInto(nameEl, (p.name || '').toUpperCase(), 55);
+
+          var daysEl = document.getElementById('days-in-office-val');
+          if (daysEl) {
+            var daysText;
+            if (p.termStart) {
+              var start = new Date(p.termStart);
+              var now = new Date();
+              var days = Math.floor((now.getTime() - start.getTime()) / 86400000);
+              daysText = days.toLocaleString() + ' days';
+            } else {
+              daysText = p.jurisdiction || 'Unknown';
+            }
+            typeInto(daysEl, daysText, 60);
+          }
 
           // Load AI summary for the default (actions) tab immediately
           aiLoaded['actions'] = true;

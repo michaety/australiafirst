@@ -16,6 +16,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
         color: #e8e8e8;
         font-family: 'Courier New', monospace;
         height: 100vh;
+        width: 100vw;
         overflow: hidden;
         display: flex;
         align-items: center;
@@ -46,53 +47,124 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
 
       .splash {
         position: relative; z-index: 10;
-        text-align: center; padding: 2rem;
-        max-width: 800px; width: 100%;
+        text-align: center;
+        padding: 1rem 2vw;
+        width: 100%;
       }
 
+      /* ── Title: always one line, scales to fit viewport ── */
       .title-wrap {
-        font-size: clamp(2.2rem, 9vw, 5.5rem);
-        font-weight: 900; letter-spacing: 0.18em;
-        line-height: 1; margin-bottom: 1.6rem; min-height: 1.2em;
-      }
-      .letter {
-        display: inline-block; opacity: 0;
-        animation: glitch-in 0.35s forwards;
-        will-change: transform, opacity;
-      }
-      .letter-space { display: inline-block; width: 0.38em; }
-
-      @keyframes glitch-in {
-        0%   { opacity: 0; transform: translateY(-10px) skewX(-25deg); filter: blur(6px); color: #fff; }
-        20%  { opacity: 1; transform: translateY(3px) skewX(6deg); color: #ff3333; filter: blur(0); }
-        35%  { opacity: 0; transform: translateY(-1px) skewX(-2deg); }
-        55%  { opacity: 1; transform: translateY(0) skewX(1deg); color: #cc0000; }
-        75%  { opacity: 0.7; }
-        100% { opacity: 1; transform: translateY(0) skewX(0); color: #e8e8e8; filter: blur(0); }
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        line-height: 1;
+        margin-bottom: 1.4rem;
+        white-space: nowrap;
+        font-size: clamp(1.4rem, 6.5vw, 5.8rem);
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
+      .type-char {
+        display: inline-block;
+        opacity: 0;
+        color: #cc0000;
+        transition: color 0.4s;
+      }
+      .type-char.typed   { opacity: 1; }
+      .type-char.settled { color: #e8e8e8; }
+
+      .letter-space { display: inline-block; width: 0.3em; }
+
+      .type-cursor {
+        display: inline-block;
+        width: 0.55em; height: 0.85em;
+        background: #cc0000;
+        vertical-align: middle;
+        margin-left: 2px;
+        animation: blink 0.75s step-end infinite;
+      }
+      @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+      .type-cursor.hidden { display: none; }
+
+      /* ── The glowing record button (replaces O in RECORD) ── */
+      .record-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 0.72em;
+        height: 0.72em;
+        border-radius: 50%;
+        background: radial-gradient(circle at 36% 34%, #ff5555 0%, #dd0000 50%, #6e0000 100%);
+        position: relative;
+        vertical-align: middle;
+        margin-bottom: 0.07em;
+        opacity: 0;
+        transition: opacity 0.2s;
+        flex-shrink: 0;
+        animation: record-pulse 2s ease-in-out infinite;
+      }
+      .record-btn.typed { opacity: 1; }
+
+      @keyframes record-pulse {
+        0%, 100% {
+          box-shadow:
+            0 0 5px 2px rgba(220,0,0,0.75),
+            0 0 16px 4px rgba(204,0,0,0.5),
+            0 0 36px 8px rgba(204,0,0,0.22);
+        }
+        50% {
+          box-shadow:
+            0 0 10px 4px rgba(255,50,50,0.95),
+            0 0 28px 10px rgba(220,0,0,0.7),
+            0 0 60px 18px rgba(200,0,0,0.38);
+        }
+      }
+
+      /* glare highlight */
+      .record-btn::before {
+        content: '';
+        position: absolute;
+        width: 38%;
+        height: 38%;
+        border-radius: 50%;
+        background: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.45) 0%, transparent 100%);
+        top: 12%;
+        left: 16%;
+      }
+
+      /* ── Tagline ── */
       .tagline {
-        color: #555; font-size: clamp(0.7rem, 1.8vw, 0.9rem);
-        letter-spacing: 0.18em; text-transform: uppercase;
-        opacity: 0; animation: fade-up 0.8s 2.6s forwards;
-        margin-bottom: 3rem;
+        color: #555;
+        font-size: clamp(0.6rem, 1.35vw, 0.85rem);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        min-height: 1.4em;
+        margin-bottom: 2.6rem;
+        overflow: hidden;
+        white-space: nowrap;
+        border-right: 2px solid #555;
+        display: inline-block;
       }
-      @keyframes fade-up {
-        from { opacity: 0; transform: translateY(10px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
+      .tagline.done { border-right-color: transparent; }
 
+      /* ── Enter button ── */
       .enter-btn {
         display: inline-block; background: transparent;
-        border: 2px solid #cc0000; color: #cc0000;
+        color: #cc0000;
         font-family: 'Courier New', monospace;
-        font-size: clamp(0.8rem, 2vw, 1rem);
+        font-size: clamp(0.7rem, 1.6vw, 1rem);
         font-weight: 900; letter-spacing: 0.35em; text-transform: uppercase;
-        padding: 1rem 2.8rem; cursor: pointer;
+        padding: 0.9rem 2.6rem; cursor: pointer;
         opacity: 0;
-        animation: fade-up 0.8s 3.1s forwards, btn-pulse 2.2s 3.9s ease-in-out infinite;
-        transition: background 0.15s, color 0.15s, transform 0.1s;
+        transition: background 0.15s, color 0.15s, transform 0.1s, opacity 0.6s;
         text-decoration: none;
+        border: none;
+        outline: 2px solid #cc0000;
+      }
+      .enter-btn.visible {
+        opacity: 1;
+        animation: btn-pulse 2.2s ease-in-out infinite;
       }
       .enter-btn:hover { background: #cc0000; color: #050505; transform: scale(1.02); }
       .enter-btn:active { transform: scale(0.97); }
@@ -117,34 +189,161 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
     <div class="corner corner-br"></div>
 
     <div class="splash">
-      <div class="title-wrap" id="title"></div>
-      <div class="tagline">Every politician. Every donor. Every foreign tie.</div>
-      <button class="enter-btn" id="enter-btn">ENTER THE REGISTER ▶</button>
+      <div class="title-wrap" id="title">
+        <span class="type-cursor" id="title-cursor"></span>
+      </div>
+      <div style="margin-bottom:0;">
+        <div class="tagline" id="tagline"></div>
+      </div>
+      <div style="margin-top:2.6rem;">
+        <button class="enter-btn" id="enter-btn">ENTER THE REGISTER &#9654;</button>
+      </div>
     </div>
 
-    <div class="status-line">ONTHERECORD.FYI — FEDERAL POLITICIAN ACCOUNTABILITY REGISTER</div>
+    <div class="status-line">ONTHERECORD.FYI &mdash; FEDERAL POLITICIAN ACCOUNTABILITY REGISTER</div>
 
     <script>
       import { playBeep } from '../scripts/sounds';
 
-      const text = 'ON THE RECORD';
-      const container = document.getElementById('title')!;
-      let delay = 0.08;
-      for (const ch of text) {
+      // ── Audio ──────────────────────────────────────────────────────────────
+      let _ctx: AudioContext | null = null;
+      function ac(): AudioContext {
+        if (!_ctx) _ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        return _ctx;
+      }
+
+      function playTypeTick() {
+        try {
+          const a = ac();
+          const osc = a.createOscillator(); const g = a.createGain();
+          osc.connect(g); g.connect(a.destination);
+          osc.type = 'square';
+          osc.frequency.value = 520 + Math.random() * 120;
+          g.gain.setValueAtTime(0.06, a.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.055);
+          osc.start(a.currentTime); osc.stop(a.currentTime + 0.055);
+        } catch {}
+      }
+
+      function playRecordThud() {
+        try {
+          const a = ac();
+          const osc = a.createOscillator(); const g = a.createGain();
+          osc.connect(g); g.connect(a.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(200, a.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(55, a.currentTime + 0.26);
+          g.gain.setValueAtTime(0.25, a.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.3);
+          osc.start(a.currentTime); osc.stop(a.currentTime + 0.3);
+        } catch {}
+      }
+
+      function playTitleDone() {
+        try {
+          const a = ac();
+          [0, 0.1, 0.22].forEach((d, i) => {
+            const osc = a.createOscillator(); const g = a.createGain();
+            osc.connect(g); g.connect(a.destination);
+            osc.type = 'square';
+            osc.frequency.value = [440, 554, 660][i];
+            g.gain.setValueAtTime(0.09, a.currentTime + d);
+            g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + d + 0.09);
+            osc.start(a.currentTime + d); osc.stop(a.currentTime + d + 0.09);
+          });
+        } catch {}
+      }
+
+      // ── Build title ────────────────────────────────────────────────────────
+      // "ON THE RECORD" — replace the O in RECORD (non-space char index 8) with a record button
+      const titleContainer = document.getElementById('title')!;
+      const titleCursor    = document.getElementById('title-cursor')!;
+
+      type Slot = { el: HTMLElement; isSpace: boolean; isRecord: boolean };
+      const slots: Slot[] = [];
+
+      const TEXT = 'ON THE RECORD';
+      // Non-space chars: O=0 N=1 T=2 H=3 E=4 R=5 E=6 C=7 O=8 R=9 D=10
+      // The O in RECORD is non-space index 8
+      const RECORD_O_NONSPACE_IDX = 8;
+      let nonSpaceCount = 0;
+
+      for (let i = 0; i < TEXT.length; i++) {
+        const ch = TEXT[i];
         if (ch === ' ') {
           const sp = document.createElement('span');
           sp.className = 'letter-space';
-          container.appendChild(sp);
+          titleContainer.insertBefore(sp, titleCursor);
+          slots.push({ el: sp, isSpace: true, isRecord: false });
+        } else if (nonSpaceCount === RECORD_O_NONSPACE_IDX) {
+          const btn = document.createElement('span');
+          btn.className = 'record-btn';
+          titleContainer.insertBefore(btn, titleCursor);
+          slots.push({ el: btn, isSpace: false, isRecord: true });
+          nonSpaceCount++;
         } else {
           const span = document.createElement('span');
-          span.className = 'letter';
+          span.className = 'type-char';
           span.textContent = ch;
-          span.style.animationDelay = `${delay}s`;
-          container.appendChild(span);
-          delay += 0.11;
+          titleContainer.insertBefore(span, titleCursor);
+          slots.push({ el: span, isSpace: false, isRecord: false });
+          nonSpaceCount++;
         }
       }
 
+      // ── Type it out ────────────────────────────────────────────────────────
+      let slotIdx = 0;
+      const BASE_INTERVAL = 92;
+
+      function typeNextChar() {
+        if (slotIdx >= slots.length) {
+          titleCursor.classList.add('hidden');
+          playTitleDone();
+          slots.forEach(s => {
+            if (!s.isSpace && !s.isRecord) s.el.classList.add('settled');
+          });
+          setTimeout(typeTagline, 500);
+          return;
+        }
+
+        const s = slots[slotIdx];
+        let extraDelay = 0;
+
+        if (!s.isSpace) {
+          s.el.classList.add('typed');
+          if (s.isRecord) {
+            playRecordThud();
+            extraDelay = 160; // dramatic pause on the record button
+          } else {
+            playTypeTick();
+          }
+        }
+
+        slotIdx++;
+        setTimeout(typeNextChar, BASE_INTERVAL + extraDelay + (Math.random() * 30 - 15));
+      }
+
+      setTimeout(typeNextChar, 600);
+
+      // ── Tagline ────────────────────────────────────────────────────────────
+      const taglineEl   = document.getElementById('tagline')!;
+      const taglineText = 'Every politician. Every donor. Every foreign tie.';
+      taglineEl.textContent = '';
+      let tIdx = 0;
+
+      function typeTagline() {
+        if (tIdx >= taglineText.length) {
+          taglineEl.classList.add('done');
+          setTimeout(() => document.getElementById('enter-btn')!.classList.add('visible'), 300);
+          return;
+        }
+        taglineEl.textContent += taglineText[tIdx];
+        if (taglineText[tIdx] !== ' ') playTypeTick();
+        tIdx++;
+        setTimeout(typeTagline, 50 + (Math.random() * 18 - 9));
+      }
+
+      // ── Enter ──────────────────────────────────────────────────────────────
       document.getElementById('enter-btn')!.addEventListener('click', () => {
         playBeep();
         setTimeout(() => { window.location.href = '/explore'; }, 130);
