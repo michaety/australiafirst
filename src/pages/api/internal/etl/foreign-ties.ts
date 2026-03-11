@@ -333,9 +333,10 @@ async function processMember(
 
   const buf = await res.arrayBuffer();
   const text = extractPdfText(buf);
-  if (text.length < 100) {
+  console.log(`  ${politician.name}: PDF fetch status=${res.status} text_length=${text.length}`);
+  if (text.length < 50) {
     // PDF likely scanned — skip (would need OCR)
-    console.log(`  ${politician.name}: scanned PDF, skipping`);
+    console.log(`  ${politician.name}: scanned PDF (text<50), skipping`);
     return 0;
   }
 

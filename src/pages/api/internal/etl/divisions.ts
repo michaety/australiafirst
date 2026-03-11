@@ -65,6 +65,13 @@ export async function runDivisionsETL(env: Env) {
     };
   }
 
+  // Deduplicate any existing action rows with the same (politician_id, title, date)
+  await DB.prepare(`
+    DELETE FROM actions WHERE id NOT IN (
+      SELECT MIN(id) FROM actions GROUP BY politician_id, title, date
+    )
+  `).run();
+
   const errors: string[] = [];
   let divisionsProcessed = 0;
   let votesProcessed = 0;
@@ -206,7 +213,7 @@ export async function runDivisionsETL(env: Env) {
       stmts.push(DB.prepare(`
         INSERT INTO actions (id, politician_id, title, description, date, category, source_url)
         VALUES (?, ?, ?, ?, ?, 'voting-record', ?)
-        ON CONFLICT(id) DO UPDATE SET title = excluded.title, description = excluded.description
+        ON CONFLICT DO NOTHING
       `).bind(actionId, politicianId, `Voted ${voteValue.toUpperCase()}: ${div.title}`, div.title, div.date, div.source_url));
 
       votesProcessed++;

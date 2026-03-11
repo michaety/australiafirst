@@ -9,8 +9,42 @@ const { id } = Astro.params;
 <html lang="en">
   <head>
     <BaseHead title="Politician Profile | On The Record" description="Accountability profile for Australian federal politician" />
+    <style>
+      .back-btn {
+        position: fixed; top: 16px; left: 16px; z-index: 200;
+        background: transparent; border: 1px solid #2a2a2a; color: #444;
+        font-family: 'Courier New', monospace; font-size: 0.7rem; font-weight: 700;
+        letter-spacing: 0.15em; text-transform: uppercase; padding: 0.4rem 0.9rem;
+        cursor: pointer; transition: all 0.12s;
+      }
+      .back-btn:hover { border-color: #cc0000; color: #cc0000; }
+      .stat-box { position: relative; cursor: default; }
+      .stat-tip {
+        display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+        background: #080808; border: 1px solid #cc0000; color: #888;
+        font-family: 'Courier New', monospace; font-size: 0.65rem; line-height: 1.5;
+        padding: 6px 10px; white-space: nowrap; z-index: 300; pointer-events: none; text-align: center;
+        min-width: 200px;
+      }
+      .stat-box:hover .stat-tip { display: block; }
+      @keyframes ai-pulse {
+        0%, 100% { opacity: 0.45; }
+        50% { opacity: 0.85; }
+      }
+      .ai-loading { animation: ai-pulse 1.6s ease-in-out infinite; }
+    </style>
   </head>
   <body style="margin:0;padding:0;background:#050505;color:#e8e8e8;font-family:'Courier New',monospace;">
+    <button class="back-btn" id="back-btn">&#8592; BACK TO REGISTER</button>
+    <script>
+      import { playBeep, playSwipe, playAlert, playError } from '../../scripts/sounds';
+      (window as any).__sounds = { playBeep, playSwipe, playAlert, playError };
+      document.getElementById('back-btn')!.addEventListener('click', () => {
+        playBeep();
+        if (window.history.length > 1) { setTimeout(() => window.history.back(), 100); }
+        else { setTimeout(() => { window.location.href = '/explore'; }, 100); }
+      });
+    </script>
     <div id="page-wrap" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px;gap:32px;box-sizing:border-box;">
       <div style="text-align:center;max-width:680px;width:100%;">
         <div style="color:#c8001a;font-size:11px;letter-spacing:6px;margin-bottom:8px;">&#9670; ON THE RECORD &#9670;</div>
@@ -31,9 +65,18 @@ const { id } = Astro.params;
     <script define:vars={{ politicianId: id }}>
       function esc(s) {
         if (!s) return '';
-        const d = document.createElement('div');
+        var d = document.createElement('div');
         d.textContent = s;
         return d.innerHTML;
+      }
+
+      function escAttr(s) {
+        if (!s) return '';
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/"/g, '&quot;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
       }
 
       function formatAmount(cents) {
@@ -75,7 +118,261 @@ const { id } = Astro.params;
         return '#666';
       }
 
+      // ── Policy helpers ──────────────────────────────────────────────────────
+
+      function policyStanceLabel(pct) {
+        if (pct == null) return 'NO DATA';
+        if (pct >= 80) return 'STRONG SUPPORTER';
+        if (pct >= 60) return 'MOSTLY SUPPORTS';
+        if (pct > 40) return 'MIXED RECORD';
+        if (pct >= 20) return 'MOSTLY OPPOSES';
+        return 'STRONG OPPONENT';
+      }
+
+      function policyStanceColor(pct) {
+        if (pct == null) return '#555';
+        if (pct >= 70) return '#2bff6e';
+        if (pct >= 55) return '#88cc88';
+        if (pct >= 45) return '#ff8c00';
+        if (pct >= 30) return '#ff6644';
+        return '#c8001a';
+      }
+
+      function policyVoteLabel(pct) {
+        if (pct == null) return '';
+        if (pct > 55) return 'VOTES FOR';
+        if (pct < 45) return 'VOTES AGAINST';
+        return 'MIXED';
+      }
+
+      // ── Shared collapse/expand ──────────────────────────────────────────────
+
+      window.__showSection = function(toggleId, className) {
+        document.querySelectorAll('.' + className).forEach(function(el) {
+          el.style.display = el.getAttribute('data-display') || 'block';
+        });
+        var toggle = document.getElementById(toggleId);
+        if (toggle) toggle.style.display = 'none';
+      };
+
+      function showMoreBtn(toggleId, className, label) {
+        return '<div id="' + toggleId + '" style="text-align:center;padding:6px 0;">'
+          + '<button onclick="window.__showSection(\'' + toggleId + '\',\'' + className + '\')"'
+          + ' style="background:transparent;border:1px solid #2a2a2a;color:#555;font-family:\'Courier New\',monospace;font-size:9px;letter-spacing:2px;padding:5px 14px;cursor:pointer;"'
+          + ' onmouseover="this.style.borderColor=\'#c8001a\';this.style.color=\'#c8001a\';"'
+          + ' onmouseout="this.style.borderColor=\'#2a2a2a\';this.style.color=\'#555\';">'
+          + label
+          + '</button></div>';
+      }
+
+      // ── AI summary card ─────────────────────────────────────────────────────
+
+      function aiSummaryCardHtml(tabName) {
+        return '<div id="ai-card-' + tabName + '" style="background:#0d0d0d;border:1px solid #1e1e1e;border-left:3px solid #c8001a;padding:14px;margin-bottom:16px;">'
+          + '<div style="color:#c8001a;font-size:8px;letter-spacing:3px;font-weight:900;margin-bottom:8px;">▸ AI SUMMARY</div>'
+          + '<div id="ai-summary-' + tabName + '" class="ai-loading" style="color:#555;font-size:12px;line-height:1.7;font-style:italic;">Generating summary...</div>'
+          + '</div>';
+      }
+
+      // ── Policy HTML ─────────────────────────────────────────────────────────
+
+      function buildPolicyRow(ps, hidden, hiddenClass) {
+        var pct = ps.agreement_pct != null ? Math.round(ps.agreement_pct) : null;
+        var barColor = pct == null ? '#333' : pct >= 60 ? '#2bff6e' : pct <= 40 ? '#c8001a' : '#ff8c00';
+        var voteLabel = policyVoteLabel(pct);
+        var desc = escAttr(ps.policy_description || '');
+        var classAttr = hidden ? ' class="' + hiddenClass + '" data-display="block"' : '';
+        return '<div' + classAttr + ' style="' + (hidden ? 'display:none;' : '') + 'padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:6px;" title="' + desc + '">'
+          + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'
+            + '<div style="color:#ccc;font-size:12px;flex:1;padding-right:12px;">' + esc(ps.policy_name) + '</div>'
+            + '<span style="color:' + policyStanceColor(pct) + ';font-size:9px;font-weight:900;letter-spacing:1px;white-space:nowrap;">' + policyStanceLabel(pct) + '</span>'
+          + '</div>'
+          + '<div style="height:4px;background:#1a1a1a;border-radius:2px;overflow:hidden;">'
+            + (pct != null ? '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:2px;"></div>' : '')
+          + '</div>'
+          + '<div style="display:flex;justify-content:space-between;margin-top:3px;">'
+            + '<span style="color:#333;font-size:9px;">OPPOSES</span>'
+            + (voteLabel ? '<span style="color:#555;font-size:9px;letter-spacing:1px;">' + voteLabel + '</span>' : '')
+            + '<span style="color:#333;font-size:9px;">SUPPORTS</span>'
+          + '</div>'
+          + '</div>';
+      }
+
+      function buildPolicySection(title, items, sectionId) {
+        if (items.length === 0) return '';
+        var LIMIT = 8;
+        var hiddenClass = sectionId + '-hidden';
+        var toggleId = sectionId + '-toggle';
+        var html = '<div style="margin-bottom:20px;">'
+          + '<div style="color:#555;font-size:9px;letter-spacing:3px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #1a1a1a;">'
+            + title + ' (' + items.length + ')'
+          + '</div>';
+        items.forEach(function(ps, i) { html += buildPolicyRow(ps, i >= LIMIT, hiddenClass); });
+        if (items.length > LIMIT) html += showMoreBtn(toggleId, hiddenClass, 'SHOW ALL (' + items.length + ')');
+        return html + '</div>';
+      }
+
+      function buildPolicyHtml(policyScores) {
+        if (policyScores.length === 0) {
+          return '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No policy voting data on record.</div>';
+        }
+        var sorted = policyScores.slice().sort(function(a, b) {
+          var aAbs = a.agreement_pct != null ? Math.abs(a.agreement_pct - 50) : -1;
+          var bAbs = b.agreement_pct != null ? Math.abs(b.agreement_pct - 50) : -1;
+          return bAbs - aAbs;
+        });
+        var decisive = sorted.filter(function(ps) {
+          return ps.agreement_pct != null && (ps.agreement_pct > 70 || ps.agreement_pct < 30);
+        });
+        var contested = sorted.filter(function(ps) {
+          return ps.agreement_pct != null && ps.agreement_pct >= 30 && ps.agreement_pct <= 70
+            && Math.abs((ps.agreement_pct || 0) - 50) > 0.01;
+        });
+        var unclear = sorted.filter(function(ps) {
+          return ps.agreement_pct == null || Math.abs((ps.agreement_pct || 0) - 50) < 0.01;
+        });
+        var html = aiSummaryCardHtml('policy');
+        html += buildPolicySection('DECISIVE VOTES', decisive, 'policy-decisive');
+        html += buildPolicySection('CONTESTED', contested, 'policy-contested');
+        html += buildPolicySection('NO CLEAR POSITION', unclear, 'policy-unclear');
+        html += '<div style="color:#333;font-size:10px;margin-top:4px;">Source: They Vote For You — theyvoteforyou.org.au</div>';
+        return html;
+      }
+
+      // ── Actions HTML ────────────────────────────────────────────────────────
+
+      function buildActionsHtml(actions) {
+        if (actions.length === 0) {
+          return '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No documented actions on record.</div>';
+        }
+        var sorted = actions.slice().sort(function(a, b) {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
+        var categories = {};
+        sorted.forEach(function(a) {
+          var cat = (a.category || 'UNCATEGORISED').toUpperCase();
+          if (!categories[cat]) categories[cat] = [];
+          categories[cat].push(a);
+        });
+        var totalActions = actions.length;
+        var COLLAPSE_AT = 5;
+        var html = aiSummaryCardHtml('actions');
+        Object.keys(categories).sort().forEach(function(cat) {
+          var items = categories[cat];
+          var sectionId = 'actions-cat-' + cat.replace(/[^a-z0-9]/gi, '').toLowerCase();
+          var hiddenClass = sectionId + '-hidden';
+          var toggleId = sectionId + '-toggle';
+          var collapseAt = totalActions > 10 ? COLLAPSE_AT : items.length;
+          html += '<div style="margin-bottom:20px;">'
+            + '<div style="color:#555;font-size:9px;letter-spacing:3px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #1a1a1a;">'
+              + esc(cat) + ' (' + items.length + ')'
+            + '</div>';
+          items.forEach(function(a, i) {
+            var hidden = i >= collapseAt;
+            var classAttr = hidden ? ' class="' + hiddenClass + '" data-display="flex"' : '';
+            html += '<div' + classAttr + ' style="' + (hidden ? 'display:none;' : 'display:flex;') + 'gap:12px;align-items:flex-start;padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;border-left:3px solid #c8001a;margin-bottom:8px;">'
+              + '<div>'
+              + '<div style="color:#ccc;font-size:12px;line-height:1.5;">' + esc(a.title) + '</div>'
+              + (a.description ? '<div style="color:#888;font-size:11px;line-height:1.4;margin-top:4px;">' + esc(a.description) + '</div>' : '')
+              + '<div style="margin-top:4px;">'
+              + (a.date ? '<span style="font-size:10px;color:#555;margin-right:8px;">' + formatDate(a.date) + '</span>' : '')
+              + (a.category ? '<span style="font-size:10px;color:#444;margin-right:8px;border:1px solid #1e1e1e;padding:1px 5px;">' + esc(a.category) + '</span>' : '')
+              + (a.sourceUrl ? '<a href="' + esc(a.sourceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Source ↗</a>' : '')
+              + (a.evidenceUrl ? '<a href="' + esc(a.evidenceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Evidence ↗</a>' : '')
+              + '</div></div></div>';
+          });
+          if (items.length > collapseAt) {
+            html += showMoreBtn(toggleId, hiddenClass, 'SHOW MORE (' + (items.length - collapseAt) + ' more)');
+          }
+          html += '</div>';
+        });
+        return html;
+      }
+
+      // ── Donations HTML ──────────────────────────────────────────────────────
+
+      function buildDonationsHtml(donations, partyDonations, p) {
+        var allDonations = donations.length > 0 ? donations : partyDonations;
+        var isParty = donations.length === 0 && partyDonations.length > 0;
+        if (allDonations.length === 0) {
+          return '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No donation records found.</div>';
+        }
+        var totalCents = allDonations.reduce(function(sum, d) { return sum + (d.amountCents || 0); }, 0);
+        var html = '';
+
+        // Plain English note
+        html += '<div style="color:#888;font-size:11px;line-height:1.5;margin-bottom:12px;padding:10px 12px;background:#0d0d0d;border:1px solid #1a1a1a;border-left:3px solid #333;">'
+          + 'This shows who has financially supported ' + esc(p.name) + (isParty ? ' or their party' : '') + '.'
+          + '</div>';
+
+        // Total amount
+        if (totalCents > 0) {
+          html += '<div style="text-align:center;padding:16px;margin-bottom:16px;background:#0a0a0a;border:1px solid #1e1e1e;">'
+            + '<div style="color:#555;font-size:9px;letter-spacing:3px;margin-bottom:4px;">TOTAL DISCLOSED DONATIONS</div>'
+            + '<div style="color:#c8001a;font-size:32px;font-weight:900;letter-spacing:-1px;">' + formatAmount(totalCents) + '</div>'
+            + '</div>';
+        }
+
+        if (isParty) {
+          html += '<div style="background:#111;border:1px solid #1e1e1e;padding:10px 12px;margin-bottom:12px;">'
+            + '<div style="color:#ff8c00;font-size:11px;font-weight:900;letter-spacing:1px;margin-bottom:4px;">⚠ PARTY DISCLOSURES</div>'
+            + '<div style="color:#888;font-size:11px;line-height:1.5;">Donations to <strong style="color:#ccc;">' + esc(p.partyName || p.party || 'their party') + '</strong> — individual MP disclosures not required for party members.</div>'
+            + '</div>';
+        }
+
+        // Sort by amount DESC, group by year DESC
+        var sorted = allDonations.slice().sort(function(a, b) { return (b.amountCents || 0) - (a.amountCents || 0); });
+        var years = {};
+        sorted.forEach(function(d) {
+          var yr = d.year ? String(d.year) : 'YEAR UNKNOWN';
+          if (!years[yr]) years[yr] = [];
+          years[yr].push(d);
+        });
+        var yearKeys = Object.keys(years).sort(function(a, b) {
+          if (a === 'YEAR UNKNOWN') return 1;
+          if (b === 'YEAR UNKNOWN') return -1;
+          return Number(b) - Number(a);
+        });
+
+        var LIMIT = 10;
+        yearKeys.forEach(function(yr) {
+          var items = years[yr];
+          var sectionId = 'donors-yr-' + yr.replace(/[^a-z0-9]/gi, '').toLowerCase();
+          var hiddenClass = sectionId + '-hidden';
+          var toggleId = sectionId + '-toggle';
+          html += '<div style="margin-bottom:20px;">'
+            + '<div style="color:#555;font-size:9px;letter-spacing:3px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #1a1a1a;">'
+              + esc(yr) + ' (' + items.length + ')'
+            + '</div>';
+          items.forEach(function(d, i) {
+            var hidden = i >= LIMIT;
+            var classAttr = hidden ? ' class="' + hiddenClass + '" data-display="flex"' : '';
+            html += '<div' + classAttr + ' style="' + (hidden ? 'display:none;' : 'display:flex;') + 'justify-content:space-between;align-items:center;padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:8px;">'
+              + '<div style="display:flex;gap:10px;align-items:center;">'
+              + '<span style="font-size:14px;">' + donorFlag(d.amountCents) + '</span>'
+              + '<div><div style="color:#ccc;font-size:12px;">' + esc(d.donorName) + '</div>'
+              + (d.notes ? '<div style="color:#555;font-size:10px;">' + esc(d.notes) + '</div>' : '')
+              + '</div></div>'
+              + '<div style="color:#c8001a;font-size:14px;font-weight:900;">' + formatAmount(d.amountCents) + '</div>'
+              + '</div>';
+          });
+          if (items.length > LIMIT) html += showMoreBtn(toggleId, hiddenClass, 'SHOW MORE (' + (items.length - LIMIT) + ' more)');
+          html += '</div>';
+        });
+
+        html += '<div style="color:#333;font-size:10px;margin-top:4px;">Source: Australian Electoral Commission — '
+          + (isParty ? 'Party Annual Returns' : 'Transparency Register')
+          + ' transparency.aec.gov.au</div>';
+        return html;
+      }
+
+      // ── Tab switching + AI lazy load ────────────────────────────────────────
+
       var tabNames = ['actions', 'donors', 'promises', 'foreign', 'policy'];
+      var aiLoaded = {};
 
       function switchTab(activeTab) {
         tabNames.forEach(function(t) {
@@ -86,6 +383,10 @@ const { id } = Astro.params;
             btn.style.borderBottomColor = '#c8001a';
             btn.style.color = '#f0f0f0';
             panel.style.display = 'block';
+            if ((t === 'policy' || t === 'actions') && !aiLoaded[t]) {
+              aiLoaded[t] = true;
+              loadAiSummary(t);
+            }
           } else {
             btn.style.background = 'transparent';
             btn.style.borderBottomColor = 'transparent';
@@ -94,6 +395,31 @@ const { id } = Astro.params;
           }
         });
       }
+
+      function loadAiSummary(tabName) {
+        var endpoint = tabName === 'policy'
+          ? '/api/v1/politicians/' + politicianId + '/policy-summary'
+          : '/api/v1/politicians/' + politicianId + '/actions-summary';
+        var el = document.getElementById('ai-summary-' + tabName);
+        var card = document.getElementById('ai-card-' + tabName);
+        if (!el) return;
+        fetch(endpoint)
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            var text = tabName === 'policy' ? data.summary : data.blurb;
+            if (text) {
+              el.classList.remove('ai-loading');
+              el.style.color = '#999';
+              el.style.fontStyle = 'normal';
+              el.textContent = text;
+            } else if (card) {
+              card.style.display = 'none';
+            }
+          })
+          .catch(function() { if (card) card.style.display = 'none'; });
+      }
+
+      // ── Load profile ────────────────────────────────────────────────────────
 
       async function loadProfile() {
         var card = document.getElementById('mugshot-card');
@@ -113,7 +439,6 @@ const { id } = Astro.params;
           var foreignTies = data.foreignTies || [];
           var policyScores = policyData.policyScores || [];
           var partyDonations = data.partyDonations || [];
-          var isPartyMember = p.partyId && p.partyId !== 'party_independent';
 
           var caseNum = 'AF-' + (p.id || '').replace(/[^0-9]/g, '').slice(0, 6);
           var chamberLabel = p.chamber === 'senate' ? 'Senator' : 'Member of Parliament';
@@ -124,60 +449,10 @@ const { id } = Astro.params;
             : '';
           var noPhotoDisplay = p.photoUrl ? 'none' : 'flex';
 
-          // Build actions HTML
-          var actionsHtml = '';
-          if (actions.length === 0) {
-            actionsHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No documented actions on record.</div>';
-          } else {
-            actions.forEach(function(a, i) {
-              actionsHtml += '<div style="display:flex;gap:12px;align-items:flex-start;padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;border-left:3px solid #c8001a;margin-bottom:8px;">'
-                + '<span style="color:#c8001a;font-size:11px;font-weight:900;min-width:20px;">' + String(i + 1).padStart(2, '0') + '</span>'
-                + '<div>'
-                + '<div style="color:#ccc;font-size:12px;line-height:1.5;">' + esc(a.title) + '</div>'
-                + (a.description ? '<div style="color:#888;font-size:11px;line-height:1.4;margin-top:4px;">' + esc(a.description) + '</div>' : '')
-                + '<div style="margin-top:4px;">'
-                + (a.date ? '<span style="font-size:10px;color:#555;margin-right:8px;">' + formatDate(a.date) + '</span>' : '')
-                + (a.category ? '<span style="font-size:10px;color:#555;margin-right:8px;">' + esc(a.category) + '</span>' : '')
-                + (a.sourceUrl ? '<a href="' + esc(a.sourceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Source ↗</a>' : '')
-                + (a.evidenceUrl ? '<a href="' + esc(a.evidenceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Evidence ↗</a>' : '')
-                + '</div></div></div>';
-            });
-          }
+          var actionsHtml = buildActionsHtml(actions);
+          var donationsHtml = buildDonationsHtml(donations, partyDonations, p);
 
-          // Build donations HTML
-          var donationsHtml = '';
-          if (donations.length === 0 && partyDonations.length === 0) {
-            donationsHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No donation records found.</div>';
-          } else if (donations.length > 0) {
-            donations.forEach(function(d) {
-              donationsHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:8px;">'
-                + '<div style="display:flex;gap:10px;align-items:center;">'
-                + '<span style="font-size:14px;">' + donorFlag(d.amountCents) + '</span>'
-                + '<div><div style="color:#ccc;font-size:12px;">' + esc(d.donorName) + '</div>'
-                + '<div style="color:#444;font-size:10px;">' + (d.year || '') + '</div></div></div>'
-                + '<div style="color:#c8001a;font-size:14px;font-weight:900;">' + formatAmount(d.amountCents) + '</div>'
-                + '</div>';
-            });
-            donationsHtml += '<div style="color:#333;font-size:10px;margin-top:4px;">Source: Australian Electoral Commission transparency.aec.gov.au</div>';
-          } else {
-            // Party donations fallback
-            donationsHtml += '<div style="background:#111;border:1px solid #1e1e1e;padding:10px 12px;margin-bottom:12px;">'
-              + '<div style="color:#ff8c00;font-size:11px;font-weight:900;letter-spacing:1px;margin-bottom:4px;">⚠ PARTY DISCLOSURES</div>'
-              + '<div style="color:#888;font-size:11px;line-height:1.5;">Donations to <strong style="color:#ccc;">' + esc(p.partyName || p.party || 'their party') + '</strong> — individual MP disclosures not required for party members.</div>'
-              + '</div>';
-            partyDonations.forEach(function(d) {
-              donationsHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:8px;">'
-                + '<div style="display:flex;gap:10px;align-items:center;">'
-                + '<span style="font-size:14px;">' + donorFlag(d.amountCents) + '</span>'
-                + '<div><div style="color:#ccc;font-size:12px;">' + esc(d.donorName) + '</div>'
-                + '<div style="color:#444;font-size:10px;">' + (d.year || '') + '</div></div></div>'
-                + '<div style="color:#c8001a;font-size:14px;font-weight:900;">' + formatAmount(d.amountCents) + '</div>'
-                + '</div>';
-            });
-            donationsHtml += '<div style="color:#333;font-size:10px;margin-top:4px;">Source: Australian Electoral Commission — Party Annual Returns transparency.aec.gov.au</div>';
-          }
-
-          // Build promises HTML
+          // Promises HTML
           var promisesHtml = '';
           if (promises.length === 0) {
             promisesHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No election promises on record.</div>';
@@ -199,7 +474,7 @@ const { id } = Astro.params;
             });
           }
 
-          // Build foreign ties HTML
+          // Foreign ties HTML
           var foreignHtml = '';
           if (foreignTies.length === 0) {
             foreignHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No foreign ties on record.</div>';
@@ -213,53 +488,17 @@ const { id } = Astro.params;
             });
           }
 
-          // Build policy scores HTML
-          var policyHtml = '';
-          if (policyScores.length === 0) {
-            policyHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No policy voting data on record.</div>';
-          } else {
-            policyScores.forEach(function(ps) {
-              var pct = ps.agreement_pct != null ? Math.round(ps.agreement_pct) : null;
-              var barColor = pct == null ? '#333'
-                : pct >= 60 ? '#2bff6e'
-                : pct <= 40 ? '#c8001a'
-                : '#ff8c00';
-              var label = pct == null ? 'N/A' : pct + '%';
-              var controversy = pct != null ? Math.round(50 - Math.abs(pct - 50)) : 0;
-              policyHtml += '<div style="padding:10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:8px;">'
-                + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">'
-                  + '<div style="color:#ccc;font-size:12px;flex:1;padding-right:12px;">' + esc(ps.policy_name) + '</div>'
-                  + '<div style="color:' + barColor + ';font-size:13px;font-weight:900;min-width:40px;text-align:right;">' + label + '</div>'
-                + '</div>'
-                + (ps.policy_description ? '<div style="color:#555;font-size:10px;margin-bottom:6px;">' + esc(ps.policy_description) + '</div>' : '')
-                + '<div style="height:4px;background:#1a1a1a;border-radius:2px;overflow:hidden;">'
-                  + (pct != null ? '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:2px;"></div>' : '')
-                + '</div>'
-                + '<div style="display:flex;justify-content:space-between;margin-top:3px;">'
-                  + '<span style="color:#333;font-size:9px;">AGAINST</span>'
-                  + (controversy > 0 ? '<span style="color:#444;font-size:9px;letter-spacing:1px;">CONTROVERSY ' + controversy + '%</span>' : '')
-                  + '<span style="color:#333;font-size:9px;">IN FAVOUR</span>'
-                + '</div>'
-              + '</div>';
-            });
-            policyHtml += '<div style="color:#333;font-size:10px;margin-top:4px;">Source: They Vote For You — theyvoteforyou.org.au · Sorted by most controversial first</div>';
-          }
+          var policyHtml = buildPolicyHtml(policyScores);
 
           var tabBtnBase = 'flex:1;padding:10px 4px;border:none;font-size:9px;font-weight:900;letter-spacing:1px;cursor:pointer;font-family:\'Courier New\',monospace;border-bottom:2px solid transparent;';
 
           card.innerHTML =
-            // Red header
             '<div style="background:#c8001a;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;">'
               + '<span style="color:#fff;font-size:11px;font-weight:900;letter-spacing:3px;">ON THE RECORD — PUBLIC RECORD</span>'
               + '<span style="color:rgba(255,255,255,0.7);font-size:10px;letter-spacing:1px;">CASE #' + esc(caseNum) + '</span>'
             + '</div>'
-
-            // Mugshot row
             + '<div style="display:flex;border-bottom:1px solid #1e1e1e;">'
-
-              // Photo column
               + '<div style="position:relative;width:200px;min-width:200px;background:#111;overflow:hidden;">'
-                // Height ruler
                 + '<div style="position:absolute;right:0;top:0;bottom:0;width:28px;background:#0a0a0a;border-left:1px solid #222;display:flex;flex-direction:column;justify-content:space-between;padding:8px 0;z-index:2;">'
                   + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">6\'2"</span>'
                   + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">6\'0"</span>'
@@ -267,21 +506,17 @@ const { id } = Astro.params;
                   + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'8"</span>'
                   + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'6"</span>'
                 + '</div>'
-                // Photo frame
                 + '<div style="width:172px;height:220px;overflow:hidden;position:relative;background:#1a1a1a;">'
                   + photoImgHtml
                   + '<div style="width:100%;height:100%;display:' + noPhotoDisplay + ';align-items:center;justify-content:center;color:#333;font-size:11px;text-align:center;padding:10px;">PHOTO<br>UNAVAILABLE</div>'
                   + '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,0.7) 100%);pointer-events:none;"></div>'
                   + '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;"></div>'
                 + '</div>'
-                // Booking strip
                 + '<div style="background:#0a0a0a;border-top:1px solid #1e1e1e;padding:8px;text-align:center;">'
                   + '<div style="color:#c8001a;font-size:10px;letter-spacing:2px;margin-bottom:3px;">BOOKING DATE</div>'
                   + '<div style="color:#666;font-size:11px;">Since ' + esc(p.jurisdiction || 'Unknown') + '</div>'
                 + '</div>'
               + '</div>'
-
-              // Identity column
               + '<div style="flex:1;padding:20px;border-left:1px solid #1a1a1a;display:flex;flex-direction:column;gap:12px;">'
                 + '<div>'
                   + '<div style="color:#444;font-size:10px;letter-spacing:3px;margin-bottom:4px;">FULL NAME</div>'
@@ -300,10 +535,7 @@ const { id } = Astro.params;
                   + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + foreignTies.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">FOREIGN LINKS</div></div>'
                 + '</div>'
               + '</div>'
-
             + '</div>'
-
-            // Tabs
             + '<div style="display:flex;border-bottom:1px solid #1a1a1a;background:#080808;">'
               + '<button id="tab-btn-actions" style="' + tabBtnBase + 'background:#111;border-bottom-color:#c8001a;color:#f0f0f0;">ACTIONS</button>'
               + '<button id="tab-btn-donors" style="' + tabBtnBase + 'background:transparent;color:#444;">FOLLOW THE MONEY</button>'
@@ -311,34 +543,25 @@ const { id } = Astro.params;
               + '<button id="tab-btn-foreign" style="' + tabBtnBase + 'background:transparent;color:#444;">FOREIGN TIES</button>'
               + '<button id="tab-btn-policy" style="' + tabBtnBase + 'background:transparent;color:#444;">POLICY</button>'
             + '</div>'
-
-            // Panels
             + '<div id="panel-actions" style="display:block;padding:16px;min-height:200px;">'
-              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">DOCUMENTED ACTIONS AGAINST THE NATIONAL INTEREST</div>'
+              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:12px;">DOCUMENTED ACTIONS AGAINST THE NATIONAL INTEREST</div>'
               + actionsHtml
             + '</div>'
-
             + '<div id="panel-donors" style="display:none;padding:16px;min-height:200px;">'
-              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">SOURCE: AEC TRANSPARENCY REGISTER — WHO PAID THEM</div>'
               + donationsHtml
             + '</div>'
-
             + '<div id="panel-promises" style="display:none;padding:16px;min-height:200px;">'
               + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">WHAT THEY SAID VS WHAT THEY DID</div>'
               + promisesHtml
             + '</div>'
-
             + '<div id="panel-foreign" style="display:none;padding:16px;min-height:200px;">'
               + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">FOREIGN ENTITY ASSOCIATIONS & RISK ASSESSMENT</div>'
               + foreignHtml
             + '</div>'
-
             + '<div id="panel-policy" style="display:none;padding:16px;min-height:200px;">'
-              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">HOW THEY VOTE ON POLICIES — AGREEMENT % (SOURCE: THEY VOTE FOR YOU)</div>'
+              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:12px;">HOW THEY VOTE ON POLICIES — SOURCE: THEY VOTE FOR YOU</div>'
               + policyHtml
             + '</div>'
-
-            // Footer
             + '<div style="border-top:1px solid #1a1a1a;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:#080808;">'
               + '<span style="color:#2a2a2a;font-size:10px;letter-spacing:1px;">ALL DATA SOURCED FROM PUBLIC RECORDS</span>'
               + '<span style="color:#c8001a;font-size:10px;letter-spacing:2px;font-weight:900;">ONTHERECORD.FYI</span>'
@@ -347,6 +570,10 @@ const { id } = Astro.params;
           tabNames.forEach(function(t) {
             document.getElementById('tab-btn-' + t).addEventListener('click', function() { switchTab(t); });
           });
+
+          // Load AI summary for the default (actions) tab immediately
+          aiLoaded['actions'] = true;
+          loadAiSummary('actions');
 
           document.title = p.name.toUpperCase() + ' | On The Record';
 

@@ -202,20 +202,29 @@ export async function runDonationsETL(env: Env, filterYear?: string) {
   if (receiptsObj) {
     const csv = await receiptsObj.text();
     const lines = csv.split('\n');
-    // Header: "Financial Year","Return Type","Recipient Name","Received From","Receipt Type","Value"
+    // Header: "Donor/Lender","Donor/Lender ABN","Donor/Lender Address","Recipient","Recipient Type","Amount","Financial Year"
     const stmts: D1PreparedStatement[] = [];
+
+    // Debug: print first 3 data rows to confirm column mapping
+    for (let d = 1; d <= 3 && d < lines.length; d++) {
+      const dl = lines[d].trim();
+      if (dl) {
+        const df = parseCSVRow(dl);
+        console.log(`detailed-receipts row ${d}: donor="${df[0]}" abn="${df[1]}" recipient="${df[3]}" type="${df[4]}" amount="${df[5]}" fy="${df[6]}"`);
+      }
+    }
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
       const fields = parseCSVRow(line);
-      if (fields.length < 6) continue;
+      if (fields.length < 7) continue;
 
-      const [fy, returnType, recipientRaw, receivedFrom, _receiptType, valueStr] = fields;
+      const [donorLender, _donorABN, _donorAddress, recipientRaw, recipientType, valueStr, fy] = fields;
       if (filterYear && fy !== filterYear) continue;
 
       // Only process MP/Senator returns
-      if (!/Member of HOR Return|Senator Return/i.test(returnType)) continue;
+      if (!/Member of HOR Return|Senator Return/i.test(recipientType)) continue;
 
       const cleaned = cleanRecipientName(recipientRaw);
       const sur = surname(cleaned).toLowerCase();
@@ -228,12 +237,12 @@ export async function runDonationsETL(env: Env, filterYear?: string) {
       const year = parseFinancialYear(fy);
 
       for (const pol of matches) {
-        const id = hashDonation([pol.id, receivedFrom, fy, valueStr, 'receipt']);
+        const id = hashDonation([pol.id, donorLender, fy, valueStr, 'receipt']);
         stmts.push(DB.prepare(`
           INSERT INTO donations (id, politician_id, donor_name, amount_cents, year, source, source_url, notes)
           VALUES (?, ?, ?, ?, ?, 'AEC', ?, ?)
           ON CONFLICT(id) DO NOTHING
-        `).bind(id, pol.id, receivedFrom, amountCents, year, SOURCE_URL, `FY ${fy} — ${returnType}`));
+        `).bind(id, pol.id, donorLender, amountCents, year, SOURCE_URL, `FY ${fy} — ${recipientType}`));
         inserted++;
       }
     }
@@ -260,13 +269,13 @@ export async function runDonationsETL(env: Env, filterYear?: string) {
       const line = lines[i].trim();
       if (!line) continue;
       const fields = parseCSVRow(line);
-      if (fields.length < 6) continue;
+      if (fields.length < 7) continue;
 
-      const [fy, returnType, recipientRaw, receivedFrom, _receiptType, valueStr] = fields;
+      const [donorLender, _donorABN, _donorAddress, recipientRaw, recipientType, valueStr, fy] = fields;
       if (filterYear && fy !== filterYear) continue;
 
       // Only process party returns
-      if (!/Political Party Return/i.test(returnType)) continue;
+      if (!/Political Party Return/i.test(recipientType)) continue;
 
       const partyId = resolvePartyId(recipientRaw);
       if (!partyId) { unmatchedParties.add(recipientRaw); partySkipped++; continue; }
@@ -274,13 +283,13 @@ export async function runDonationsETL(env: Env, filterYear?: string) {
       yearsProcessed.add(fy);
       const amountCents = Math.round(parseFloat(valueStr) * 100) || 0;
       const year = parseFinancialYear(fy);
-      const id = hashDonation(['party', partyId, receivedFrom, fy, valueStr]);
+      const id = hashDonation(['party', partyId, donorLender, fy, valueStr]);
 
       stmts.push(DB.prepare(`
         INSERT INTO donations (id, politician_id, party_id, donor_name, amount_cents, year, source, source_url, notes)
         VALUES (?, NULL, ?, ?, ?, ?, 'AEC', ?, ?)
         ON CONFLICT(id) DO NOTHING
-      `).bind(id, partyId, receivedFrom, amountCents, year, PARTY_SOURCE_URL, `FY ${fy} — ${returnType} — ${recipientRaw}`));
+      `).bind(id, partyId, donorLender, amountCents, year, PARTY_SOURCE_URL, `FY ${fy} — ${recipientType} — ${recipientRaw}`));
       partyInserted++;
     }
 

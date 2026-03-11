@@ -1,0 +1,360 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+
+const SITE_TITLE = 'Explore | On The Record';
+const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Australian federal politicians.';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+    <style>
+      body { background: #0a0a0a; color: #e8e8e8; font-family: 'Courier New', monospace; margin: 0; }
+
+      /* ── Header ── */
+      .header-bar {
+        background: #1a0000; border-bottom: 3px solid #cc0000;
+        padding: 0.9rem 2rem; display: flex; align-items: center; gap: 1rem;
+      }
+      .header-bar h1 { font-size: 1.3rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2em; color: #cc0000; margin: 0; }
+      .tagline { color: #555; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; }
+      .back-link { margin-left: auto; color: #444; font-size: 0.7rem; letter-spacing: 0.1em; text-decoration: none; text-transform: uppercase; }
+      .back-link:hover { color: #cc0000; }
+
+      /* ── Filter bar ── */
+      .filters { background: #0f0f0f; border-bottom: 1px solid #222; padding: 1rem 2rem; display: flex; flex-direction: column; gap: 0.75rem; }
+      .filter-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+      .filter-label { color: #444; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.15em; min-width: 52px; }
+
+      /* Pill buttons */
+      .pill { background: #111; border: 1px solid #2a2a2a; color: #555; font-family: 'Courier New', monospace; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.3rem 0.75rem; cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+      .pill:hover { border-color: #555; color: #aaa; }
+      .pill.active { background: #cc0000; border-color: #cc0000; color: #fff; }
+
+      /* Party scroll row */
+      .party-row { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+      .party-row::-webkit-scrollbar { display: none; }
+
+      /* Risk pills colour-coded */
+      .pill[data-risk="critical"].active { background: #ff2020; border-color: #ff2020; }
+      .pill[data-risk="high"].active     { background: #ff8c00; border-color: #ff8c00; color: #000; }
+      .pill[data-risk="medium"].active   { background: #ffd600; border-color: #ffd600; color: #000; }
+      .pill[data-risk="low"].active      { background: #22c55e; border-color: #22c55e; color: #000; }
+
+      /* Sort tab-style */
+      .sort-row { display: flex; gap: 0; border: 1px solid #222; overflow: hidden; }
+      .sort-pill { background: #0a0a0a; border: none; border-right: 1px solid #222; color: #444; font-family: 'Courier New', monospace; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.3rem 0.9rem; cursor: pointer; transition: all 0.12s; }
+      .sort-pill:last-child { border-right: none; }
+      .sort-pill:hover { color: #aaa; background: #111; }
+      .sort-pill.active { background: #111; color: #e8e8e8; border-bottom: 2px solid #cc0000; }
+
+      /* Search input */
+      .search-input { background: #111; border: 1px solid #2a2a2a; color: #e8e8e8; padding: 0.3rem 0.75rem; font-family: 'Courier New', monospace; font-size: 0.8rem; min-width: 220px; }
+      .search-input:focus { outline: 1px solid #cc0000; border-color: #cc0000; }
+      .search-input::placeholder { color: #333; }
+
+      /* ── Risk count bar ── */
+      .count-bar {
+        padding: 0.6rem 2rem; font-size: 0.72rem; letter-spacing: 0.08em;
+        border-bottom: 1px solid #151515; display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center;
+      }
+      .count-critical { color: #ff2020; }
+      .count-high     { color: #ff8c00; }
+      .count-medium   { color: #ffd600; }
+      .count-low      { color: #22c55e; }
+      .count-total    { color: #444; margin-left: auto; }
+
+      /* ── Grid ── */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 1.2rem; padding: 1.5rem 2rem;
+        max-width: 1600px; margin: 0 auto;
+        transition: opacity 0.2s;
+      }
+      .grid.fading { opacity: 0; }
+
+      /* ── Card ── */
+      .politician-card {
+        background: #0d0d0d; border: 1px solid #1e1e1e;
+        cursor: pointer; text-decoration: none; color: inherit;
+        display: block; transition: border-color 0.15s, box-shadow 0.15s;
+        overflow: hidden;
+      }
+      .politician-card:hover {
+        border-color: #cc0000;
+        box-shadow: 0 0 18px rgba(204,0,0,0.25), 0 0 4px rgba(204,0,0,0.1);
+      }
+
+      .photo-container {
+        position: relative; width: 100%; aspect-ratio: 3/4; overflow: hidden; background: #1a1a1a;
+      }
+      .photo-container img {
+        width: 100%; height: 100%; object-fit: cover; object-position: top;
+        filter: grayscale(100%) contrast(1.3) brightness(0.7);
+        display: block; transition: filter 0.2s;
+      }
+      .politician-card:hover .photo-container img {
+        filter: grayscale(60%) contrast(1.2) brightness(0.8);
+      }
+      .photo-placeholder {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #1a1a1a, #0f0f0f); font-size: 3rem; color: #2a2a2a;
+      }
+      .photo-overlay {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        padding: 0.5rem; background: linear-gradient(transparent, rgba(0,0,0,0.92));
+      }
+
+      .chamber-badge {
+        display: inline-block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.1em; padding: 0.15rem 0.4rem; border: 1px solid;
+      }
+      .chamber-badge.senate       { color: #ff9900; border-color: #ff9900; }
+      .chamber-badge.representatives { color: #00aaff; border-color: #00aaff; }
+
+      /* Risk badge */
+      .risk-badge-wrap { position: absolute; top: 6px; right: 6px; }
+      .risk-badge {
+        display: inline-block; font-size: 0.65rem; font-weight: 900; letter-spacing: 0.08em;
+        text-transform: uppercase; padding: 0.2rem 0.5rem; color: #000; cursor: default;
+      }
+      .risk-badge.critical { background: #ff2020; animation: badge-pulse 1.8s ease-in-out infinite; }
+      .risk-badge.high     { background: #ff8c00; }
+      .risk-badge.medium   { background: #ffd600; }
+      .risk-badge.low      { background: #22c55e; }
+
+      @keyframes badge-pulse {
+        0%, 100% { box-shadow: 0 0 4px rgba(255,32,32,0.6); }
+        50%       { box-shadow: 0 0 14px rgba(255,32,32,1), 0 0 28px rgba(255,32,32,0.4); }
+      }
+
+      /* Risk badge tooltip */
+      .risk-tooltip {
+        display: none; position: absolute; top: calc(100% + 6px); right: 0;
+        background: #0a0a0a; border: 1px solid #cc0000; color: #aaa;
+        font-family: 'Courier New', monospace; font-size: 0.65rem; white-space: nowrap;
+        padding: 5px 9px; z-index: 200; pointer-events: none; text-align: left;
+      }
+      .risk-badge-wrap:hover .risk-tooltip { display: block; }
+
+      /* Card info */
+      .card-info {
+        padding: 0.7rem; transition: transform 0.15s;
+      }
+      .politician-card:hover .card-info { transform: translateY(-3px); }
+
+      .politician-name { font-size: 0.85rem; font-weight: 700; color: #e8e8e8; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.3; margin-bottom: 0.2rem; }
+      .party-pill { display: inline-block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.12rem 0.35rem; background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; margin-bottom: 0.2rem; }
+      .electorate { font-size: 0.65rem; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+
+      .empty-state { text-align: center; padding: 4rem; color: #444; grid-column: 1/-1; }
+      .loading-state { text-align: center; padding: 4rem; color: #444; }
+
+      footer { border-top: 1px solid #151515; padding: 1.5rem 2rem; text-align: center; color: #2e2e2e; font-size: 0.7rem; }
+    </style>
+  </head>
+  <body>
+    <div class="header-bar">
+      <div>
+        <h1>On The Record</h1>
+        <div class="tagline">Federal Politician Accountability Register</div>
+      </div>
+      <a href="/" class="back-link">← Home</a>
+    </div>
+
+    <div class="filters">
+      <!-- Chamber -->
+      <div class="filter-row">
+        <span class="filter-label">Chamber</span>
+        <button class="pill active" data-filter="chamber" data-value="">ALL</button>
+        <button class="pill" data-filter="chamber" data-value="senate">SENATE</button>
+        <button class="pill" data-filter="chamber" data-value="representatives">HOUSE</button>
+      </div>
+
+      <!-- Party -->
+      <div class="filter-row">
+        <span class="filter-label">Party</span>
+        <div class="party-row">
+          <button class="pill active" data-filter="party" data-value="">ALL</button>
+          <button class="pill" data-filter="party" data-value="ALP">ALP</button>
+          <button class="pill" data-filter="party" data-value="LP">LP</button>
+          <button class="pill" data-filter="party" data-value="NP">NP</button>
+          <button class="pill" data-filter="party" data-value="LNP">LNP</button>
+          <button class="pill" data-filter="party" data-value="GRN">GRN</button>
+          <button class="pill" data-filter="party" data-value="PHON">PHON</button>
+          <button class="pill" data-filter="party" data-value="IND">IND</button>
+        </div>
+      </div>
+
+      <!-- Risk -->
+      <div class="filter-row">
+        <span class="filter-label">Risk</span>
+        <button class="pill active" data-filter="risk" data-value="">ALL</button>
+        <button class="pill" data-filter="risk" data-value="critical" data-risk="critical">CRITICAL</button>
+        <button class="pill" data-filter="risk" data-value="high"     data-risk="high">HIGH</button>
+        <button class="pill" data-filter="risk" data-value="medium"   data-risk="medium">MEDIUM</button>
+        <button class="pill" data-filter="risk" data-value="low"      data-risk="low">LOW</button>
+      </div>
+
+      <!-- Sort + Search -->
+      <div class="filter-row" style="gap:1rem;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <span class="filter-label">Sort</span>
+          <div class="sort-row">
+            <button class="sort-pill active" data-sort="name">NAME</button>
+            <button class="sort-pill" data-sort="risk">HIGHEST RISK</button>
+            <button class="sort-pill" data-sort="donors">MOST DONORS</button>
+            <button class="sort-pill" data-sort="actions">MOST ACTIONS</button>
+          </div>
+        </div>
+        <input type="text" class="search-input" id="filter-search" placeholder="Search name or electorate…" />
+      </div>
+    </div>
+
+    <div class="count-bar" id="count-bar">
+      <span style="color:#333;">Loading…</span>
+    </div>
+
+    <div class="grid" id="politician-grid">
+      <div class="loading-state">Loading accountability register…</div>
+    </div>
+
+    <footer>All data sourced from public records. APH · AEC · Hansard · OpenAustralia</footer>
+
+    <script>
+      import { playBeep, playSwipe, playAlert, playError } from '../scripts/sounds';
+
+      let allPoliticians: any[] = [];
+      let currentFilters = { chamber: '', party: '', risk: '', q: '', sort: 'name' };
+
+      // ── Filter pill interactions ──
+      document.querySelectorAll('[data-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const filter = (btn as HTMLElement).dataset.filter!;
+          const value  = (btn as HTMLElement).dataset.value!;
+          (currentFilters as any)[filter] = value;
+          // update active state in same group
+          document.querySelectorAll(`[data-filter="${filter}"]`).forEach(b => b.classList.toggle('active', b === btn));
+          playSwipe();
+          applyFilters();
+        });
+      });
+
+      document.querySelectorAll('[data-sort]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentFilters.sort = (btn as HTMLElement).dataset.sort!;
+          document.querySelectorAll('[data-sort]').forEach(b => b.classList.toggle('active', b === btn));
+          playSwipe();
+          applyFilters();
+        });
+      });
+
+      let searchDebounce: ReturnType<typeof setTimeout>;
+      document.getElementById('filter-search')!.addEventListener('input', e => {
+        currentFilters.q = (e.target as HTMLInputElement).value;
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(applyFilters, 280);
+      });
+
+      // ── Data load ──
+      async function loadAll() {
+        try {
+          const res = await fetch('/api/v1/politicians.json?sort=name&limit=500');
+          const data = await res.json();
+          allPoliticians = data.politicians || [];
+          applyFilters();
+          playAlert();
+        } catch {
+          document.getElementById('politician-grid')!.innerHTML = '<div class="empty-state">Failed to load data.</div>';
+          playError();
+        }
+      }
+
+      function applyFilters() {
+        let list = allPoliticians.slice();
+        const { chamber, party, risk, q, sort } = currentFilters;
+        if (chamber) list = list.filter(p => p.chamber === chamber);
+        if (party)   list = list.filter(p => (p.party || '').toUpperCase() === party.toUpperCase());
+        if (risk)    list = list.filter(p => (p.riskLabel || 'low').toLowerCase() === risk);
+        if (q) {
+          const lq = q.toLowerCase();
+          list = list.filter(p => p.name.toLowerCase().includes(lq) || (p.electorate || '').toLowerCase().includes(lq));
+        }
+        list.sort((a, b) => {
+          if (sort === 'name')    return a.name.localeCompare(b.name);
+          if (sort === 'risk')    return (b.riskScore || 0) - (a.riskScore || 0);
+          if (sort === 'donors')  return (b.donorCount || 0) - (a.donorCount || 0);
+          if (sort === 'actions') return (b.actionCount || 0) - (a.actionCount || 0);
+          return 0;
+        });
+        updateCountBar(list);
+        renderGrid(list);
+      }
+
+      function updateCountBar(list: any[]) {
+        const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+        list.forEach(p => { const r = (p.riskLabel || 'low').toLowerCase() as keyof typeof counts; if (r in counts) counts[r]++; });
+        const bar = document.getElementById('count-bar')!;
+        bar.innerHTML = [
+          counts.critical ? `<span class="count-critical">&#9670; ${counts.critical} CRITICAL</span>` : '',
+          counts.high     ? `<span class="count-high">&#9670; ${counts.high} HIGH</span>` : '',
+          counts.medium   ? `<span class="count-medium">&#9670; ${counts.medium} MEDIUM</span>` : '',
+          counts.low      ? `<span class="count-low">&#9670; ${counts.low} LOW</span>` : '',
+          `<span class="count-total">${list.length} ON RECORD</span>`,
+        ].filter(Boolean).join('');
+      }
+
+      function renderGrid(politicians: any[]) {
+        const grid = document.getElementById('politician-grid')!;
+
+        // Fade out → update → fade in
+        grid.classList.add('fading');
+        setTimeout(() => {
+          if (politicians.length === 0) {
+            grid.innerHTML = '<div class="empty-state">No politicians match your filters.</div>';
+          } else {
+            grid.innerHTML = politicians.map(p => {
+              const initials = p.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2);
+              const chamberClass = p.chamber === 'senate' ? 'senate' : 'representatives';
+              const chamberLabel = p.chamber === 'senate' ? 'SEN' : 'REP';
+              const rl = (p.riskLabel || '').toLowerCase();
+              const riskHtml = p.riskScore > 0 ? `
+                <div class="risk-badge-wrap">
+                  <span class="risk-badge ${rl}">${rl.toUpperCase()}</span>
+                  <div class="risk-tooltip">Risk Score: ${p.riskScore}/100</div>
+                </div>` : '';
+
+              return `
+                <a class="politician-card" href="/politicians/${p.id}">
+                  <div class="photo-container">
+                    ${p.photoUrl
+                      ? `<img src="${p.photoUrl}" alt="${p.name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+                      : ''}
+                    <div class="photo-placeholder" ${p.photoUrl ? 'style="display:none"' : ''}>${initials}</div>
+                    <div class="photo-overlay">
+                      <span class="chamber-badge ${chamberClass}">${chamberLabel}</span>
+                    </div>
+                    ${riskHtml}
+                  </div>
+                  <div class="card-info">
+                    <div class="politician-name">${p.name}</div>
+                    ${p.party ? `<div class="party-pill">${p.party}</div>` : ''}
+                    ${p.electorate ? `<div class="electorate">${p.electorate}</div>` : ''}
+                  </div>
+                </a>`;
+            }).join('');
+
+            // Sound on card click
+            grid.querySelectorAll('.politician-card').forEach(card => {
+              card.addEventListener('click', () => playBeep());
+            });
+          }
+          grid.classList.remove('fading');
+        }, 180);
+      }
+
+      loadAll();
+    </script>
+  </body>
+</html>

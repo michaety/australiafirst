@@ -1,7 +1,7 @@
 ---
 import BaseHead from '../components/BaseHead.astro';
 
-const SITE_TITLE = 'On The Record | Politician Accountability';
+const SITE_TITLE = 'On The Record | Australian Politician Accountability';
 const SITE_DESCRIPTION = 'A public accountability register for Australian federal politicians. Documented votes, donations, promises, and foreign ties — all sourced from public records.';
 ---
 <!doctype html>
@@ -9,299 +9,146 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
   <head>
     <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
     <style>
-      body { background: #0a0a0a; color: #e8e8e8; font-family: 'Courier New', monospace; }
-      .header-bar {
-        background: #1a0000;
-        border-bottom: 3px solid #cc0000;
-        padding: 1rem 2rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-      }
-      .header-bar h1 {
-        font-size: 1.4rem;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        color: #cc0000;
-        margin: 0;
-      }
-      .tagline {
-        color: #888;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-      }
-      .filters {
-        background: #111;
-        border-bottom: 1px solid #333;
-        padding: 1rem 2rem;
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      .filters label {
-        color: #888;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-      }
-      .filters select, .filters input {
-        background: #1a1a1a;
-        border: 1px solid #444;
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+        background: #050505;
         color: #e8e8e8;
-        padding: 0.4rem 0.8rem;
-        font-family: inherit;
-        font-size: 0.85rem;
-        cursor: pointer;
-      }
-      .filters select:focus, .filters input:focus {
-        outline: 1px solid #cc0000;
-        border-color: #cc0000;
-      }
-      .results-bar {
-        padding: 0.75rem 2rem;
-        font-size: 0.8rem;
-        color: #666;
-        border-bottom: 1px solid #1a1a1a;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 1.5rem;
-        padding: 2rem;
-        max-width: 1600px;
-        margin: 0 auto;
-      }
-      .politician-card {
-        background: #111;
-        border: 1px solid #2a2a2a;
-        cursor: pointer;
-        transition: border-color 0.15s, transform 0.15s;
-        text-decoration: none;
-        color: inherit;
-        display: block;
-      }
-      .politician-card:hover {
-        border-color: #cc0000;
-        transform: translateY(-2px);
-      }
-      .photo-container {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 3/4;
+        font-family: 'Courier New', monospace;
+        height: 100vh;
         overflow: hidden;
-        background: #1a1a1a;
-      }
-      .photo-container img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        filter: grayscale(30%) contrast(1.1);
-        display: block;
-      }
-      .photo-placeholder {
-        width: 100%;
-        height: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #1a1a1a, #0f0f0f);
-        font-size: 3rem;
-        color: #333;
       }
-      .photo-overlay {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: 0.5rem;
-        background: linear-gradient(transparent, rgba(0,0,0,0.9));
+
+      .scanlines {
+        position: fixed; inset: 0;
+        background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.13) 2px, rgba(0,0,0,0.13) 4px);
+        pointer-events: none; z-index: 50;
       }
-      .chamber-badge {
-        display: inline-block;
-        font-size: 0.6rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        padding: 0.15rem 0.4rem;
-        border: 1px solid;
+      .vignette {
+        position: fixed; inset: 0;
+        background: radial-gradient(ellipse at center, transparent 30%, rgba(110,0,0,0.55) 100%);
+        pointer-events: none; z-index: 2;
+        animation: vignette-pulse 4s ease-in-out infinite;
       }
-      .chamber-badge.senate { color: #ff9900; border-color: #ff9900; }
-      .chamber-badge.representatives { color: #00aaff; border-color: #00aaff; }
-      .card-info {
-        padding: 0.75rem;
+      @keyframes vignette-pulse {
+        0%, 100% { opacity: 0.6; }
+        50%       { opacity: 1; }
       }
-      .politician-name {
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: #e8e8e8;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        line-height: 1.3;
-        margin-bottom: 0.25rem;
+
+      .corner { position: fixed; width: 44px; height: 44px; opacity: 0.25; z-index: 10; }
+      .corner-tl { top: 24px; left: 24px; border-top: 1px solid #cc0000; border-left: 1px solid #cc0000; }
+      .corner-tr { top: 24px; right: 24px; border-top: 1px solid #cc0000; border-right: 1px solid #cc0000; }
+      .corner-bl { bottom: 24px; left: 24px; border-bottom: 1px solid #cc0000; border-left: 1px solid #cc0000; }
+      .corner-br { bottom: 24px; right: 24px; border-bottom: 1px solid #cc0000; border-right: 1px solid #cc0000; }
+
+      .splash {
+        position: relative; z-index: 10;
+        text-align: center; padding: 2rem;
+        max-width: 800px; width: 100%;
       }
-      .party-pill {
-        display: inline-block;
-        font-size: 0.65rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 0.15rem 0.4rem;
-        background: #1a1a1a;
-        border: 1px solid #333;
-        color: #aaa;
-        margin-bottom: 0.25rem;
+
+      .title-wrap {
+        font-size: clamp(2.2rem, 9vw, 5.5rem);
+        font-weight: 900; letter-spacing: 0.18em;
+        line-height: 1; margin-bottom: 1.6rem; min-height: 1.2em;
       }
-      .electorate {
-        font-size: 0.7rem;
-        color: #666;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+      .letter {
+        display: inline-block; opacity: 0;
+        animation: glitch-in 0.35s forwards;
+        will-change: transform, opacity;
       }
-      .loading { text-align: center; padding: 4rem; color: #666; }
-      .empty-state { text-align: center; padding: 4rem; color: #666; grid-column: 1/-1; }
-      footer { border-top: 1px solid #1a1a1a; padding: 2rem; text-align: center; color: #444; font-size: 0.75rem; margin-top: 2rem; }
+      .letter-space { display: inline-block; width: 0.38em; }
+
+      @keyframes glitch-in {
+        0%   { opacity: 0; transform: translateY(-10px) skewX(-25deg); filter: blur(6px); color: #fff; }
+        20%  { opacity: 1; transform: translateY(3px) skewX(6deg); color: #ff3333; filter: blur(0); }
+        35%  { opacity: 0; transform: translateY(-1px) skewX(-2deg); }
+        55%  { opacity: 1; transform: translateY(0) skewX(1deg); color: #cc0000; }
+        75%  { opacity: 0.7; }
+        100% { opacity: 1; transform: translateY(0) skewX(0); color: #e8e8e8; filter: blur(0); }
+      }
+
+      .tagline {
+        color: #555; font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+        letter-spacing: 0.18em; text-transform: uppercase;
+        opacity: 0; animation: fade-up 0.8s 2.6s forwards;
+        margin-bottom: 3rem;
+      }
+      @keyframes fade-up {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      .enter-btn {
+        display: inline-block; background: transparent;
+        border: 2px solid #cc0000; color: #cc0000;
+        font-family: 'Courier New', monospace;
+        font-size: clamp(0.8rem, 2vw, 1rem);
+        font-weight: 900; letter-spacing: 0.35em; text-transform: uppercase;
+        padding: 1rem 2.8rem; cursor: pointer;
+        opacity: 0;
+        animation: fade-up 0.8s 3.1s forwards, btn-pulse 2.2s 3.9s ease-in-out infinite;
+        transition: background 0.15s, color 0.15s, transform 0.1s;
+        text-decoration: none;
+      }
+      .enter-btn:hover { background: #cc0000; color: #050505; transform: scale(1.02); }
+      .enter-btn:active { transform: scale(0.97); }
+
+      @keyframes btn-pulse {
+        0%, 100% { box-shadow: 0 0 8px rgba(204,0,0,0.5), 0 0 20px rgba(204,0,0,0.15); }
+        50%       { box-shadow: 0 0 22px rgba(204,0,0,0.8), 0 0 55px rgba(204,0,0,0.35); }
+      }
+
+      .status-line {
+        position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+        font-size: 0.6rem; letter-spacing: 0.25em; color: #1e1e1e; z-index: 10; white-space: nowrap;
+      }
     </style>
   </head>
   <body>
-    <div class="header-bar">
-      <div>
-        <h1>On The Record</h1>
-        <div class="tagline">Federal Politician Accountability Register</div>
-      </div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+
+    <div class="splash">
+      <div class="title-wrap" id="title"></div>
+      <div class="tagline">Every politician. Every donor. Every foreign tie.</div>
+      <button class="enter-btn" id="enter-btn">ENTER THE REGISTER ▶</button>
     </div>
 
-    <div class="filters">
-      <div>
-        <label for="filter-chamber">Chamber</label><br>
-        <select id="filter-chamber">
-          <option value="">All Chambers</option>
-          <option value="representatives">House of Representatives</option>
-          <option value="senate">Senate</option>
-        </select>
-      </div>
-      <div>
-        <label for="filter-party">Party</label><br>
-        <select id="filter-party">
-          <option value="">All Parties</option>
-          <option value="ALP">Labor</option>
-          <option value="LP">Liberal</option>
-          <option value="NP">Nationals</option>
-          <option value="GRN">Greens</option>
-          <option value="PHON">One Nation</option>
-          <option value="IND">Independent</option>
-        </select>
-      </div>
-      <div>
-        <label for="filter-search">Search</label><br>
-        <input type="text" id="filter-search" placeholder="Name or electorate..." />
-      </div>
-      <div>
-        <label for="filter-sort">Sort</label><br>
-        <select id="filter-sort">
-          <option value="name">Name</option>
-          <option value="donors">Most Donors</option>
-          <option value="actions">Most Actions</option>
-          <option value="controversial">Most Controversial</option>
-          <option value="risk">Highest Risk</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="results-bar" id="results-count">Loading...</div>
-
-    <div class="grid" id="politician-grid">
-      <div class="loading">Loading accountability register...</div>
-    </div>
-
-    <footer>
-      All data sourced from public records. APH, AEC, and Hansard.
-    </footer>
+    <div class="status-line">ONTHERECORD.FYI — FEDERAL POLITICIAN ACCOUNTABILITY REGISTER</div>
 
     <script>
-      let currentFilters = { chamber: '', party: '', q: '', sort: 'name' };
+      import { playBeep } from '../scripts/sounds';
 
-      async function loadPoliticians() {
-        try {
-          const params = new URLSearchParams();
-          if (currentFilters.chamber) params.set('chamber', currentFilters.chamber);
-          if (currentFilters.party) params.set('party', currentFilters.party);
-          if (currentFilters.q) params.set('q', currentFilters.q);
-          if (currentFilters.sort) params.set('sort', currentFilters.sort);
-
-          const res = await fetch(`/api/v1/politicians.json?${params}`);
-          const data = await res.json();
-          renderGrid(data.politicians || []);
-        } catch (e) {
-          document.getElementById('politician-grid').innerHTML =
-            '<div class="empty-state">Failed to load data. Please try again.</div>';
+      const text = 'ON THE RECORD';
+      const container = document.getElementById('title')!;
+      let delay = 0.08;
+      for (const ch of text) {
+        if (ch === ' ') {
+          const sp = document.createElement('span');
+          sp.className = 'letter-space';
+          container.appendChild(sp);
+        } else {
+          const span = document.createElement('span');
+          span.className = 'letter';
+          span.textContent = ch;
+          span.style.animationDelay = `${delay}s`;
+          container.appendChild(span);
+          delay += 0.11;
         }
       }
 
-      function renderGrid(politicians) {
-        const grid = document.getElementById('politician-grid');
-        const count = document.getElementById('results-count');
-        count.textContent = `${politicians.length} politician${politicians.length !== 1 ? 's' : ''} on record`;
-
-        if (politicians.length === 0) {
-          grid.innerHTML = '<div class="empty-state">No politicians match your filters.</div>';
-          return;
-        }
-
-        grid.innerHTML = politicians.map(p => {
-          const initials = p.name.split(' ').map(n => n[0]).join('').slice(0, 2);
-          const photoHtml = p.photoUrl
-            ? `<img src="${p.photoUrl}" alt="${p.name}" loading="lazy" style="width:100%;height:100%;object-fit:cover;object-position:top;filter:grayscale(30%) contrast(1.1);" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-            : '';
-          const chamberClass = p.chamber === 'senate' ? 'senate' : 'representatives';
-          const chamberLabel = p.chamber === 'senate' ? 'SEN' : 'REP';
-
-          return `
-            <a class="politician-card" href="/politicians/${p.id}">
-              <div class="photo-container">
-                ${photoHtml}
-                <div class="photo-placeholder" ${p.photoUrl ? 'style="display:none"' : ''}>${initials}</div>
-                <div class="photo-overlay">
-                  <span class="chamber-badge ${chamberClass}">${chamberLabel}</span>
-                  ${p.riskScore > 0 ? `<span style="position:absolute;top:6px;right:6px;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#000;background:${p.riskLabel === 'critical' ? '#ff2020' : p.riskLabel === 'high' ? '#ff8c00' : p.riskLabel === 'medium' ? '#ffd600' : '#22c55e'};">${p.riskLabel}</span>` : ''}
-                </div>
-              </div>
-              <div class="card-info">
-                <div class="politician-name">${p.name}</div>
-                ${p.party ? `<div class="party-pill">${p.party}</div>` : ''}
-                ${p.electorate ? `<div class="electorate">${p.electorate}</div>` : ''}
-              </div>
-            </a>
-          `;
-        }).join('');
-      }
-
-      let debounceTimer;
-      function applyFilters() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(loadPoliticians, 300);
-      }
-
-      document.getElementById('filter-chamber').addEventListener('change', e => {
-        currentFilters.chamber = e.target.value;
-        applyFilters();
+      document.getElementById('enter-btn')!.addEventListener('click', () => {
+        playBeep();
+        setTimeout(() => { window.location.href = '/explore'; }, 130);
       });
-      document.getElementById('filter-party').addEventListener('change', e => {
-        currentFilters.party = e.target.value;
-        applyFilters();
-      });
-      document.getElementById('filter-search').addEventListener('input', e => {
-        currentFilters.q = e.target.value;
-        applyFilters();
-      });
-      document.getElementById('filter-sort').addEventListener('change', e => {
-        currentFilters.sort = e.target.value;
-        applyFilters();
-      });
-
-      loadPoliticians();
     </script>
   </body>
 </html>
