@@ -205,6 +205,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
           <option value="donors">Most Donors</option>
           <option value="actions">Most Actions</option>
           <option value="controversial">Most Controversial</option>
+          <option value="risk">Highest Risk</option>
         </select>
       </div>
     </div>
@@ -264,6 +265,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
                 <div class="photo-placeholder" ${p.photoUrl ? 'style="display:none"' : ''}>${initials}</div>
                 <div class="photo-overlay">
                   <span class="chamber-badge ${chamberClass}">${chamberLabel}</span>
+                  ${p.riskScore > 0 ? `<span style="position:absolute;top:6px;right:6px;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#000;background:${p.riskLabel === 'critical' ? '#ff2020' : p.riskLabel === 'high' ? '#ff8c00' : p.riskLabel === 'medium' ? '#ffd600' : '#22c55e'};">${p.riskLabel}</span>` : ''}
                 </div>
               </div>
               <div class="card-info">

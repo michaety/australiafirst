@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { jsonResponse, jsonError, requireInternalSecret } from '../../../../lib/api';
 
+export const prerender = false;
+
 // ── Data sources ──────────────────────────────────────────────────────────────
 // Senate: structured JSON API (discovered from the React SPA env.js)
 const PBS_API   = 'https://pbs-apim-aqcdgxhvaug7f8em.z01.azurefd.net/api';
@@ -45,6 +47,24 @@ function stripHtml(s: string) { return s.replace(/<[^>]+>/g, ' ').replace(/\s+/g
 // Extracts the last word as surname from "Firstname Surname" format
 function surname(fullName: string): string {
   return fullName.trim().split(/\s+/).at(-1) ?? fullName.trim();
+}
+
+// Returns an array of lookup keys to try for a given surname.
+// Handles apostrophes (O'Neil→oneil), hyphens (Watson-Brown→watson-brown, brown)
+function surnameLookupKeys(fullName: string): string[] {
+  const sur = surname(fullName).toLowerCase();
+  const keys = [sur];
+  // Strip apostrophes: O'Neil → oneil, O'Brien → obrien
+  const noApostrophe = sur.replace(/'/g, '');
+  if (noApostrophe !== sur) keys.push(noApostrophe);
+  // For hyphenated names, also try just the last part: Watson-Brown → brown
+  if (sur.includes('-')) {
+    const lastPart = sur.split('-').at(-1);
+    if (lastPart) keys.push(lastPart);
+    // Also try without hyphen: watson-brown → watsonbrown
+    keys.push(sur.replace(/-/g, ''));
+  }
+  return keys;
 }
 
 // Senate API returns "Surname, Firstname" – normalise to "Firstname Surname"
@@ -128,7 +148,7 @@ Return [] if no foreign ties are found. No other text outside the JSON array.`;
   try {
     const result = await (env.AI as any).run(AI_MODEL, {
       messages: [
-        { role: 'system', content: 'You extract structured data from Australian parliamentary interest registers. Return only valid JSON arrays.' },
+        { role: 'system', content: 'You extract structured data from Australian parliamentary interest registers. Return only valid JSON arrays. Never use placeholder names like "Company X", "Country Y", or single letters. If you are uncertain, omit the entry entirely. Only include entries with specific, real entity names.' },
         { role: 'user', content: prompt },
       ],
       max_tokens: 1024,
@@ -141,7 +161,18 @@ Return [] if no foreign ties are found. No other text outside the JSON array.`;
     const end   = candidate.lastIndexOf(']');
     if (start === -1 || end === -1) return [];
     const parsed = JSON.parse(candidate.slice(start, end + 1));
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    const KNOWN_SHORT = new Set(['US','UK','NZ','AU','EU','DE','FR','JP','CN','IN','SG','HK','CA','IT','ES','BR','KR','TW','AE','CH','SE','NO','DK','NL','BE','AT','PL','IE','MY','TH','ID','PH']);
+    return parsed.filter((tie: AiForeignTie) => {
+      if (!tie.entity_name || tie.entity_name.length < 3) return false;
+      // Drop anything explicitly Australian
+      if ((tie.entity_country ?? '').toLowerCase().trim() === 'australia') return false;
+      if (/^(Company|Entity|Organisation|Organization|Association|Group|Institute)\s+[A-Z]$/i.test(tie.entity_name)) return false;
+      if (/^(Country|Nation|State|Region)\s+[A-Z]$/i.test(tie.entity_country ?? '')) return false;
+      if ((tie.entity_country ?? '').length <= 2 && !KNOWN_SHORT.has((tie.entity_country ?? '').toUpperCase())) return false;
+      return true;
+    });
   } catch {
     return [];
   }
@@ -334,12 +365,21 @@ async function processMember(
 }
 
 // ══ MAIN ETL ═════════════════════════════════════════════════════════════════
-export async function runForeignTiesETL(env: Env) {
+export async function runForeignTiesETL(env: Env, offset = 0, limit = 20, debugName?: string) {
   const db = env.DB;
 
-  const { results: politicians } = await db.prepare(
-    "SELECT id, name FROM politicians ORDER BY name",
-  ).all<{ id: string; name: string }>();
+  let politicians: { id: string; name: string }[];
+  if (debugName) {
+    const { results } = await db.prepare(
+      "SELECT id, name FROM politicians WHERE name LIKE ? ORDER BY name",
+    ).bind(`%${debugName}%`).all<{ id: string; name: string }>();
+    politicians = results;
+  } else {
+    const { results } = await db.prepare(
+      "SELECT id, name FROM politicians ORDER BY name LIMIT ? OFFSET ?",
+    ).bind(limit, offset).all<{ id: string; name: string }>();
+    politicians = results;
+  }
 
   // ── 1. Build Senate name→cdapId map ──────────────────────────────────────
   const senateRes = await fetch(`${PBS_API}/queryStatements?pageSize=200&pageNumber=1`, {
@@ -376,22 +416,25 @@ export async function runForeignTiesETL(env: Env) {
 
   // Debug: log first 5 politician surnames and what they'd look up
   const polSample = politicians.slice(0, 5).map(p => {
-    const sur = surname(p.name).toLowerCase();
+    const keys = surnameLookupKeys(p.name);
     const oaNum = parseInt(p.id.replace('oa_', ''), 10);
     const isSenate = oaNum >= 100000;
-    const hit = isSenate ? (senateBySurname.has(sur) ? 'senate✓' : 'senate✗') : (memberPdfMap.has(sur) ? 'pdf✓' : 'pdf✗');
-    return `${p.name}(${sur})[${hit}]`;
+    const hit = isSenate
+      ? (keys.some(k => senateBySurname.has(k)) ? 'senate✓' : 'senate✗')
+      : (keys.some(k => memberPdfMap.has(k)) ? 'pdf✓' : 'pdf✗');
+    return `${p.name}(${keys.join('|')})[${hit}]`;
   });
   console.log(`Politician sample: ${polSample.join(', ')}`);
 
   for (const pol of politicians) {
-    const sur = surname(pol.name).toLowerCase();
+    const keys = surnameLookupKeys(pol.name);
     const oaNum = parseInt(pol.id.replace('oa_', ''), 10);
     // Senate: OA member IDs ≥ 100000 (6-digit 100xxx range)
     const isSenate = oaNum >= 100000;
 
     if (isSenate) {
-      const cdapId = senateBySurname.get(sur) ?? senateBySurname.get(pol.name.toLowerCase());
+      const cdapId = keys.reduce<string | undefined>((found, k) => found ?? senateBySurname.get(k), undefined)
+        ?? senateBySurname.get(pol.name.toLowerCase());
       if (cdapId) {
         try {
           const n = await processSenator(env, db, pol, cdapId);
@@ -404,10 +447,10 @@ export async function runForeignTiesETL(env: Env) {
         await sleep(500);
       } else {
         skipped++;
-        console.log(`Senate ${pol.name} (${sur}): no PBS API match`);
+        console.log(`Senate ${pol.name} (${keys.join(',')}): no PBS API match`);
       }
     } else {
-      const pdfUrl = memberPdfMap.get(sur);
+      const pdfUrl = keys.reduce<string | undefined>((found, k) => found ?? memberPdfMap.get(k), undefined);
       if (pdfUrl) {
         try {
           const n = await processMember(env, db, pol, pdfUrl);
@@ -420,7 +463,7 @@ export async function runForeignTiesETL(env: Env) {
         await sleep(800);
       } else {
         skipped++;
-        console.log(`House ${pol.name} (${sur}): no PDF match`);
+        console.log(`House ${pol.name} (${keys.join(',')}): no PDF match`);
       }
     }
   }
@@ -439,7 +482,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (authErr) return authErr;
 
   try {
-    const result = await runForeignTiesETL(locals.runtime.env);
+    const body = await request.json().catch(() => ({}));
+    const offset = Number((body as any).offset ?? 0);
+    const limit  = Number((body as any).limit  ?? 20);
+    const debugName = (body as any).debugName as string | undefined;
+    const result = await runForeignTiesETL(locals.runtime.env, offset, limit, debugName);
     return jsonResponse(result);
   } catch (err) {
     console.error('Foreign ties ETL error:', err);

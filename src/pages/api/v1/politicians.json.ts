@@ -29,6 +29,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
           jurisdiction: p.jurisdiction,
           photoUrl: p.photo_url,
           hasMugshot: !!p.mugshot_r2_key,
+          riskScore: p.risk_score ?? 0,
+          riskLabel: p.risk_label ?? 'low',
         })),
       };
     }, 120);

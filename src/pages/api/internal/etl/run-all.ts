@@ -5,6 +5,7 @@ import { runPhotosETL } from './photos';
 import { runDivisionsETL } from './divisions';
 import { runDonationsETL } from './donations';
 import { runForeignTiesETL } from './foreign-ties';
+import { runScorerETL } from './scorer';
 
 export const prerender = false;
 
@@ -21,6 +22,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     { name: 'divisions', fn: () => runDivisionsETL(env) },
     { name: 'donations', fn: () => runDonationsETL(env) },
     { name: 'foreignTies', fn: () => runForeignTiesETL(env) },
+    { name: 'scorer', fn: () => runScorerETL(env) },
   ];
 
   for (const job of jobs) {

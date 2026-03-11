@@ -13,6 +13,8 @@ export interface Politician {
   bio: string | null;
   website: string | null;
   social_media: string | null;
+  risk_score: number;
+  risk_label: string;
 }
 
 export interface Action {
@@ -89,11 +91,14 @@ export async function getPoliticians(
     joinExtra = `LEFT JOIN (SELECT politician_id, AVG(agreement_pct) AS avg_agreement FROM politician_policy_scores GROUP BY politician_id) _ps ON _ps.politician_id = p.id`;
     selectExtra = ', _ps.avg_agreement AS _avg_agreement';
     orderBy = 'CASE WHEN _ps.avg_agreement IS NULL THEN 1 ELSE 0 END ASC, ABS(_ps.avg_agreement - 50) ASC, p.name ASC';
+  } else if (sort === 'risk') {
+    orderBy = 'p.risk_score DESC, p.name ASC';
   }
 
   let query = `
     SELECT p.id, p.name, p.chamber, p.party_id, p.electorate, p.jurisdiction,
            p.photo_url, p.mugshot_r2_key, p.bio, p.website, p.social_media,
+           p.risk_score, p.risk_label,
            pt.name AS party_name, pt.abbreviation AS party_abbreviation${selectExtra}
     FROM politicians p
     LEFT JOIN parties pt ON pt.id = p.party_id
