@@ -91,11 +91,11 @@ const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Austral
       }
       .photo-container img {
         width: 100%; height: 100%; object-fit: cover; object-position: top;
-        filter: grayscale(100%) contrast(1.3) brightness(0.7);
+        filter: grayscale(85%) contrast(1.4) brightness(0.75) sepia(20%);
         display: block; transition: filter 0.2s;
       }
       .politician-card:hover .photo-container img {
-        filter: grayscale(60%) contrast(1.2) brightness(0.8);
+        filter: grayscale(40%) contrast(1.2) brightness(0.85) sepia(10%);
       }
       .photo-placeholder {
         width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
@@ -140,13 +140,13 @@ const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Austral
 
       /* Card info */
       .card-info {
-        padding: 0.7rem; transition: transform 0.15s;
+        padding: 0.45rem 0.55rem; transition: transform 0.15s;
+        display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.4rem;
       }
-      .politician-card:hover .card-info { transform: translateY(-3px); }
+      .politician-card:hover .card-info { transform: translateY(-2px); }
 
-      .politician-name { font-size: 0.85rem; font-weight: 700; color: #e8e8e8; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.3; margin-bottom: 0.2rem; }
-      .party-pill { display: inline-block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.12rem 0.35rem; background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; margin-bottom: 0.2rem; }
-      .electorate { font-size: 0.65rem; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+      .politician-name { font-size: 0.78rem; font-weight: 700; color: #e8e8e8; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.2; }
+      .card-meta { font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
 
       .empty-state { text-align: center; padding: 4rem; color: #444; grid-column: 1/-1; }
       .loading-state { text-align: center; padding: 4rem; color: #444; }
@@ -339,8 +339,7 @@ const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Austral
                   </div>
                   <div class="card-info">
                     <div class="politician-name">${p.name}</div>
-                    ${p.party ? `<div class="party-pill">${p.party}</div>` : ''}
-                    ${p.electorate ? `<div class="electorate">${p.electorate}</div>` : ''}
+                    <div class="card-meta">${[p.party, p.electorate].filter(Boolean).join(' · ')}</div>
                   </div>
                 </a>`;
             }).join('');

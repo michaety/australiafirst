@@ -88,8 +88,6 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
       /* ── Glowing record button ── */
       .record-o {
         display: inline-block;
-        width: 0.72em;
-        height: 0.72em;
         border-radius: 50%;
         background: radial-gradient(circle at 36% 32%, #ff5555 0%, #dd0000 48%, #6e0000 100%);
         vertical-align: middle;
@@ -193,56 +191,18 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
     <div class="status-line">ONTHERECORD.FYI &mdash; FEDERAL POLITICIAN ACCOUNTABILITY REGISTER</div>
 
     <script>
-      import { playBeep } from '../scripts/sounds';
+      import { playBeep, playTypeTick, playAccessGranted } from '../scripts/sounds';
 
-      // ── Audio ──────────────────────────────────────────────────────────────
-      let _ctx: AudioContext | null = null;
-      function ac(): AudioContext {
-        if (!_ctx) _ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        return _ctx;
+      // ── Size the record button via JS (no CSS width/height) ────────────────
+      function sizeRecordBtn() {
+        const wrap = document.getElementById('title');
+        const dot  = document.querySelector('.record-o') as HTMLElement | null;
+        if (!wrap || !dot) return;
+        const px = wrap.getBoundingClientRect().height * 0.72;
+        dot.style.width  = `${px}px`;
+        dot.style.height = `${px}px`;
       }
-
-      function playTypeTick() {
-        try {
-          const a = ac();
-          const osc = a.createOscillator(); const g = a.createGain();
-          osc.connect(g); g.connect(a.destination);
-          osc.type = 'square';
-          osc.frequency.value = 520 + Math.random() * 120;
-          g.gain.setValueAtTime(0.055, a.currentTime);
-          g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.05);
-          osc.start(a.currentTime); osc.stop(a.currentTime + 0.05);
-        } catch {}
-      }
-
-      function playRecordThud() {
-        try {
-          const a = ac();
-          const osc = a.createOscillator(); const g = a.createGain();
-          osc.connect(g); g.connect(a.destination);
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(190, a.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(48, a.currentTime + 0.28);
-          g.gain.setValueAtTime(0.28, a.currentTime);
-          g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.32);
-          osc.start(a.currentTime); osc.stop(a.currentTime + 0.32);
-        } catch {}
-      }
-
-      function playTitleDone() {
-        try {
-          const a = ac();
-          [0, 0.1, 0.22].forEach((d, i) => {
-            const osc = a.createOscillator(); const g = a.createGain();
-            osc.connect(g); g.connect(a.destination);
-            osc.type = 'square';
-            osc.frequency.value = ([440, 554, 660] as number[])[i];
-            g.gain.setValueAtTime(0.09, a.currentTime + d);
-            g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + d + 0.09);
-            osc.start(a.currentTime + d); osc.stop(a.currentTime + d + 0.09);
-          });
-        } catch {}
-      }
+      window.addEventListener('resize', sizeRecordBtn);
 
       // ── Build title DOM ────────────────────────────────────────────────────
       // Words defined as char arrays; '●' marks the glowing record button.
@@ -283,7 +243,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
       function typeNext() {
         if (idx >= slots.length) {
           titleCursor.classList.add('hidden');
-          playTitleDone();
+          playAccessGranted();
           slots.forEach(s => { if (!s.isGap && !s.isRecord) s.el.classList.add('settled'); });
           setTimeout(typeTagline, 500);
           return;
@@ -291,7 +251,8 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
         const s = slots[idx];
         if (!s.isGap) {
           s.el.classList.add('typed');
-          s.isRecord ? playRecordThud() : playTypeTick();
+          if (s.isRecord) sizeRecordBtn();
+          playTypeTick();
         }
         idx++;
         const extra = s.isRecord ? 170 : 0;
