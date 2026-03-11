@@ -61,17 +61,27 @@ export const GET: APIRoute = async ({ params, locals }) => {
 Their most notable voting positions:
 ${policyLines}`;
 
-    const result = await AI.run(AI_MODEL, {
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You write plain English summaries of Australian politicians voting records for a general audience. Keep it factual, concise, and avoid political jargon. 2-3 sentences maximum. Do not start with their name.',
-        },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: 200,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    let result: any;
+    try {
+      result = await AI.run(AI_MODEL, {
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You write plain English summaries of Australian politicians voting records for a general audience. Keep it factual, concise, and avoid political jargon. 2-3 sentences maximum. Do not start with their name.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 200,
+      }, { signal: controller.signal });
+    } catch {
+      clearTimeout(timeout);
+      const data = { summary: 'Summary temporarily unavailable.' };
+      return jsonResponse(data);
+    }
+    clearTimeout(timeout);
 
     const summary = (result?.response ?? '').trim() || null;
     const data = { summary };

@@ -310,6 +310,17 @@ const { id } = Astro.params;
       // ── Donations HTML ──────────────────────────────────────────────────────
 
       function buildDonationsHtml(donations, partyDonations, p) {
+        var NOISE_DONORS = new Set([
+          'australian electoral commission',
+          'aec',
+          'electoral commission',
+        ]);
+        donations = donations.filter(function(d) {
+          return !NOISE_DONORS.has((d.donorName || '').toLowerCase().trim());
+        });
+        partyDonations = partyDonations.filter(function(d) {
+          return !NOISE_DONORS.has((d.donorName || '').toLowerCase().trim());
+        });
         var allDonations = donations.length > 0 ? donations : partyDonations;
         var isParty = donations.length === 0 && partyDonations.length > 0;
         if (allDonations.length === 0) {
@@ -497,7 +508,7 @@ const { id } = Astro.params;
           // Promises HTML
           var promisesHtml = '';
           if (promises.length === 0) {
-            promisesHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No election promises on record.</div>';
+            promisesHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">Promise tracking is manually curated. No promises have been recorded for this politician yet.</div>';
           } else {
             promises.forEach(function(pr) {
               var st = pr.status || 'pending';

@@ -58,22 +58,32 @@ Return ONLY a valid JSON array. No other text.`;
 Their documented actions:
 ${actions.slice(0, 20).map(a => `- [${a.category ?? 'other'}] ${a.title}`).join('\n')}`;
 
-    const [itemsResult, blurbResult] = await Promise.all([
-      AI.run(AI_MODEL, {
-        messages: [
-          { role: 'system', content: 'You summarise Australian parliamentary votes in plain English for a general audience. Return only valid JSON arrays.' },
-          { role: 'user', content: itemsPrompt },
-        ],
-        max_tokens: 1500,
-      }),
-      AI.run(AI_MODEL, {
-        messages: [
-          { role: 'system', content: 'You write 2-sentence plain English summaries of Australian politicians for a general audience. Be factual and concise.' },
-          { role: 'user', content: blurbPrompt },
-        ],
-        max_tokens: 150,
-      }),
-    ]);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    let itemsResult: any, blurbResult: any;
+    try {
+      [itemsResult, blurbResult] = await Promise.all([
+        AI.run(AI_MODEL, {
+          messages: [
+            { role: 'system', content: 'You summarise Australian parliamentary votes in plain English for a general audience. Return only valid JSON arrays.' },
+            { role: 'user', content: itemsPrompt },
+          ],
+          max_tokens: 1500,
+        }, { signal: controller.signal }),
+        AI.run(AI_MODEL, {
+          messages: [
+            { role: 'system', content: 'You write 2-sentence plain English summaries of Australian politicians for a general audience. Be factual and concise.' },
+            { role: 'user', content: blurbPrompt },
+          ],
+          max_tokens: 150,
+        }, { signal: controller.signal }),
+      ]);
+    } catch {
+      clearTimeout(timeout);
+      const data = { summary: [], blurb: 'Summary temporarily unavailable.' };
+      return jsonResponse(data);
+    }
+    clearTimeout(timeout);
 
     const raw: string = itemsResult?.response ?? '';
     const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);

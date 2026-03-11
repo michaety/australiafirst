@@ -369,16 +369,16 @@ async function processMember(
 export async function runForeignTiesETL(env: Env, offset = 0, limit = 20, debugName?: string) {
   const db = env.DB;
 
-  let politicians: { id: string; name: string }[];
+  let politicians: { id: string; name: string; chamber: string }[];
   if (debugName) {
     const { results } = await db.prepare(
-      "SELECT id, name FROM politicians WHERE name LIKE ? ORDER BY name",
-    ).bind(`%${debugName}%`).all<{ id: string; name: string }>();
+      "SELECT id, name, chamber FROM politicians WHERE name LIKE ? ORDER BY name",
+    ).bind(`%${debugName}%`).all<{ id: string; name: string; chamber: string }>();
     politicians = results;
   } else {
     const { results } = await db.prepare(
-      "SELECT id, name FROM politicians ORDER BY name LIMIT ? OFFSET ?",
-    ).bind(limit, offset).all<{ id: string; name: string }>();
+      "SELECT id, name, chamber FROM politicians ORDER BY name LIMIT ? OFFSET ?",
+    ).bind(limit, offset).all<{ id: string; name: string; chamber: string }>();
     politicians = results;
   }
 
@@ -418,20 +418,18 @@ export async function runForeignTiesETL(env: Env, offset = 0, limit = 20, debugN
   // Debug: log first 5 politician surnames and what they'd look up
   const polSample = politicians.slice(0, 5).map(p => {
     const keys = surnameLookupKeys(p.name);
-    const oaNum = parseInt(p.id.replace('oa_', ''), 10);
-    const isSenate = oaNum >= 100000;
+    const isSenate = (p.chamber || '').toLowerCase() === 'senate';
     const hit = isSenate
       ? (keys.some(k => senateBySurname.has(k)) ? 'senate✓' : 'senate✗')
       : (keys.some(k => memberPdfMap.has(k)) ? 'pdf✓' : 'pdf✗');
-    return `${p.name}(${keys.join('|')})[${hit}]`;
+    return `${p.name}[${p.chamber}](${keys.join('|')})[${hit}]`;
   });
   console.log(`Politician sample: ${polSample.join(', ')}`);
 
   for (const pol of politicians) {
     const keys = surnameLookupKeys(pol.name);
-    const oaNum = parseInt(pol.id.replace('oa_', ''), 10);
-    // Senate: OA member IDs ≥ 100000 (6-digit 100xxx range)
-    const isSenate = oaNum >= 100000;
+    // Route by chamber column (reliable) rather than ID heuristic
+    const isSenate = (pol.chamber || '').toLowerCase() === 'senate';
 
     if (isSenate) {
       const cdapId = keys.reduce<string | undefined>((found, k) => found ?? senateBySurname.get(k), undefined)
