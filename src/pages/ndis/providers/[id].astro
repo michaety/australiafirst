@@ -1,0 +1,250 @@
+---
+import BaseHead from '../../../components/BaseHead.astro';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead title="Provider Profile | NDIS On The Record" description="NDIS provider compliance history and enforcement actions" />
+    <style>
+      .back-btn {
+        position: fixed; top: 16px; left: 16px; z-index: 200;
+        background: transparent; border: 1px solid #2a2a2a; color: #444;
+        font-family: 'Courier New', monospace; font-size: 0.7rem; font-weight: 700;
+        letter-spacing: 0.15em; text-transform: uppercase; padding: 0.4rem 0.9rem;
+        cursor: pointer; transition: all 0.12s;
+      }
+      .back-btn:hover { border-color: #cc0000; color: #cc0000; }
+    </style>
+  </head>
+  <body style="margin:0;padding:0;background:#050505;color:#e8e8e8;font-family:'Courier New',monospace;">
+    <button class="back-btn" id="back-btn">&#8592; BACK TO REGISTER</button>
+    <script>
+      import { playBeep, playSwipe, playAlert, playError } from '../../../scripts/sounds';
+      document.getElementById('back-btn')!.addEventListener('click', () => {
+        playBeep();
+        if (window.history.length > 1) { setTimeout(() => window.history.back(), 100); }
+        else { setTimeout(() => { window.location.href = '/ndis/explore'; }, 100); }
+      });
+    </script>
+
+    <div id="page-wrap" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px;gap:32px;box-sizing:border-box;">
+      <div style="text-align:center;max-width:680px;width:100%;">
+        <div style="color:#c8001a;font-size:11px;letter-spacing:6px;margin-bottom:8px;">&#9670; NDIS ON THE RECORD &#9670;</div>
+        <div style="color:#f0f0f0;font-size:28px;font-weight:900;letter-spacing:-1px;margin-bottom:8px;">PROVIDER COMPLIANCE REGISTER</div>
+        <div style="color:#444;font-size:12px;line-height:1.6;">Compliance actions, banning orders, and enforcement history.<br>All public data from the NDIS Quality and Safeguards Commission.</div>
+      </div>
+
+      <div id="profile-card" style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;overflow:hidden;max-width:680px;width:100%;">
+        <div style="text-align:center;padding:60px;color:#333;font-size:12px;">Loading provider profile...</div>
+      </div>
+
+      <div style="color:#222;font-size:10px;text-align:center;max-width:500px;line-height:1.8;">
+        Data sources: NDIS Quality and Safeguards Commission &middot; Australian Business Register
+      </div>
+    </div>
+
+    <script define:vars={{ providerId: id }}>
+      function esc(s) {
+        if (!s) return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      function formatDate(d) {
+        if (!d) return '';
+        try { return new Date(d).toLocaleDateString('en-AU', { year: 'numeric', month: 'short', day: 'numeric' }); }
+        catch { return d; }
+      }
+
+      function actionTypeBadge(type) {
+        var labels = {
+          banning_order: 'BANNING ORDER',
+          revocation: 'REVOCATION',
+          suspension: 'SUSPENSION',
+          enforceable_undertaking: 'UNDERTAKING',
+          compliance_notice: 'COMPLIANCE NOTICE',
+        };
+        var colors = {
+          banning_order: '#c8001a',
+          revocation: '#c8001a',
+          suspension: '#ff8c00',
+          enforceable_undertaking: '#ffd600',
+          compliance_notice: '#555',
+        };
+        var label = labels[type] || type.replace(/_/g, ' ').toUpperCase();
+        var color = colors[type] || '#555';
+        return '<span style="font-size:9px;font-weight:900;letter-spacing:2px;padding:2px 7px;background:' + color + ';color:' + (color === '#555' ? '#ccc' : (color === '#ffd600' ? '#000' : '#fff')) + ';">' + label + '</span>';
+      }
+
+      function statusBadge(status) {
+        var labels = { in_force: 'IN FORCE', expired: 'EXPIRED', varied: 'VARIED' };
+        var colors = { in_force: '#c8001a', expired: '#444', varied: '#ff8c00' };
+        var label = labels[status] || (status || 'UNKNOWN').toUpperCase().replace(/_/g, ' ');
+        var color = colors[status] || '#444';
+        return '<span style="font-size:9px;font-weight:900;letter-spacing:2px;padding:2px 7px;border:1px solid ' + color + ';color:' + color + ';">' + label + '</span>';
+      }
+
+      function riskBadge(label) {
+        var colors = { critical: '#ff2020', high: '#ff8c00', medium: '#ffd600', low: '#22c55e', unknown: '#333' };
+        var textColors = { critical: '#fff', high: '#000', medium: '#000', low: '#000', unknown: '#888' };
+        var l = (label || 'unknown').toLowerCase();
+        return '<span style="font-size:12px;font-weight:900;letter-spacing:2px;padding:3px 10px;background:' + (colors[l] || '#333') + ';color:' + (textColors[l] || '#888') + ';">' + l.toUpperCase() + '</span>';
+      }
+
+      var tabNames = ['actions', 'abn'];
+
+      function switchTab(activeTab) {
+        tabNames.forEach(function(t) {
+          var btn = document.getElementById('tab-btn-' + t);
+          var panel = document.getElementById('panel-' + t);
+          if (!btn || !panel) return;
+          if (t === activeTab) {
+            btn.style.background = '#111';
+            btn.style.borderBottomColor = '#c8001a';
+            btn.style.color = '#f0f0f0';
+            panel.style.display = 'block';
+          } else {
+            btn.style.background = 'transparent';
+            btn.style.borderBottomColor = 'transparent';
+            btn.style.color = '#444';
+            panel.style.display = 'none';
+          }
+        });
+      }
+
+      function buildActionsTab(actions) {
+        if (!actions || actions.length === 0) {
+          return '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">No compliance actions on record.</div>';
+        }
+        return actions.map(function(a) {
+          var isPerm = a.is_permanent;
+          return '<div style="padding:14px;background:#0d0d0d;border:1px solid #1a1a1a;border-left:3px solid #c8001a;margin-bottom:12px;">'
+            + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">'
+            + actionTypeBadge(a.action_type)
+            + statusBadge(a.status)
+            + (isPerm ? '<span style="font-size:9px;font-weight:900;letter-spacing:2px;padding:2px 7px;background:#c8001a;color:#fff;">PERMANENT</span>' : '')
+            + '</div>'
+            + '<div style="color:#555;font-size:10px;letter-spacing:1px;margin-bottom:6px;">'
+            + (a.start_date ? 'From: ' + formatDate(a.start_date) + (a.end_date ? ' &nbsp;To: ' + formatDate(a.end_date) : (isPerm ? ' &nbsp;End: PERMANENT' : '')) : '')
+            + (a.state ? ' &nbsp;|&nbsp; ' + esc(a.state) : '')
+            + '</div>'
+            + (a.description ? '<div style="color:#888;font-size:11px;line-height:1.6;margin-bottom:6px;">' + esc(a.description) + '</div>' : '')
+            + (a.source_url ? '<a href="' + esc(a.source_url) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;text-decoration:none;">Source: NDIS Commission ↗</a>' : '')
+            + '</div>';
+        }).join('');
+      }
+
+      function buildAbnTab(p) {
+        var fields = [
+          ['ABN', p.abn || 'Not found'],
+          ['Entity Type', p.entity_type || 'Unknown'],
+          ['ABN Status', p.abn_status || 'Unknown'],
+          ['ABN Registration Date', formatDate(p.abn_reg_date) || 'Unknown'],
+          ['GST Registration Date', p.gst_reg_date ? formatDate(p.gst_reg_date) : 'Not registered'],
+          ['State', p.state || 'Unknown'],
+          ['Trading Name', p.trading_name || 'N/A'],
+        ];
+        var html = fields.map(function(f) {
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#0d0d0d;border:1px solid #1a1a1a;margin-bottom:4px;">'
+            + '<span style="color:#555;font-size:10px;letter-spacing:1px;">' + esc(f[0]) + '</span>'
+            + '<span style="color:#ccc;font-size:11px;">' + esc(f[1]) + '</span>'
+            + '</div>';
+        }).join('');
+        return html + '<div style="color:#333;font-size:10px;margin-top:8px;">Source: Australian Business Register (abn.business.gov.au)</div>';
+      }
+
+      async function loadProfile() {
+        var card = document.getElementById('profile-card');
+        try {
+          var res = await fetch('/api/v1/ndis/providers/' + providerId + '.json');
+          if (res.status === 404) {
+            card.innerHTML = '<div style="text-align:center;padding:60px;color:#333;font-size:12px;">Provider not found.</div>';
+            return;
+          }
+          var data = await res.json();
+          var p = data.provider;
+          var actions = data.actions || [];
+
+          var tabBtnBase = 'flex:1;padding:10px 4px;border:none;font-size:9px;font-weight:900;letter-spacing:1px;cursor:pointer;font-family:\'Courier New\',monospace;border-bottom:2px solid transparent;';
+
+          var actionsHtml = buildActionsTab(actions);
+          var abnHtml = buildAbnTab(p);
+
+          var hasPermanentBan = actions.some(function(a) { return a.is_permanent; });
+
+          card.innerHTML =
+            '<div style="background:#c8001a;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;">'
+              + '<span style="color:#fff;font-size:11px;font-weight:900;letter-spacing:3px;">NDIS ON THE RECORD — PROVIDER RECORD</span>'
+              + '<span style="color:rgba(255,255,255,0.7);font-size:10px;letter-spacing:1px;">' + esc(p.id || '') + '</span>'
+            + '</div>'
+            + '<div style="padding:20px;border-bottom:1px solid #1e1e1e;">'
+              + '<div style="margin-bottom:8px;">'
+              + riskBadge(p.risk_label)
+              + (hasPermanentBan ? ' <span style="font-size:10px;font-weight:900;color:#c8001a;letter-spacing:2px;vertical-align:middle;">PERMANENTLY BANNED</span>' : '')
+              + '</div>'
+              + '<div style="color:#f0f0f0;font-size:22px;font-weight:900;letter-spacing:-0.5px;margin-bottom:6px;">' + esc((p.legal_name || '').toUpperCase()) + '</div>'
+              + (p.trading_name ? '<div style="color:#555;font-size:12px;margin-bottom:8px;">Trading as: ' + esc(p.trading_name) + '</div>' : '')
+              + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px;">'
+                + '<div style="background:#111;border:1px solid #1e1e1e;padding:8px 10px;text-align:center;">'
+                  + '<div style="color:#c8001a;font-size:20px;font-weight:900;">' + (p.risk_score || 0) + '</div>'
+                  + '<div style="color:#444;font-size:8px;letter-spacing:1px;">RISK SCORE</div>'
+                + '</div>'
+                + '<div style="background:#111;border:1px solid #1e1e1e;padding:8px 10px;text-align:center;">'
+                  + '<div style="color:#c8001a;font-size:20px;font-weight:900;">' + (actions.length) + '</div>'
+                  + '<div style="color:#444;font-size:8px;letter-spacing:1px;">COMPLIANCE ACTIONS</div>'
+                + '</div>'
+                + '<div style="background:#111;border:1px solid #1e1e1e;padding:8px 10px;text-align:center;">'
+                  + '<div style="color:#aaa;font-size:12px;font-weight:700;">' + (p.abn_reg_date ? formatDate(p.abn_reg_date) : 'Unknown') + '</div>'
+                  + '<div style="color:#444;font-size:8px;letter-spacing:1px;">ABN REGISTERED</div>'
+                + '</div>'
+                + '<div style="background:#111;border:1px solid #1e1e1e;padding:8px 10px;text-align:center;">'
+                  + '<div style="color:#aaa;font-size:12px;font-weight:700;">' + esc((p.reg_status || 'unknown').toUpperCase()) + '</div>'
+                  + '<div style="color:#444;font-size:8px;letter-spacing:1px;">REGISTRATION STATUS</div>'
+                + '</div>'
+              + '</div>'
+            + '</div>'
+            + '<div style="display:flex;border-bottom:1px solid #1a1a1a;background:#080808;">'
+              + '<button id="tab-btn-actions" style="' + tabBtnBase + 'background:#111;border-bottom-color:#c8001a;color:#f0f0f0;">COMPLIANCE ACTIONS</button>'
+              + '<button id="tab-btn-abn" style="' + tabBtnBase + 'background:transparent;color:#444;">ABN DETAILS</button>'
+            + '</div>'
+            + '<div id="panel-actions" style="display:block;padding:16px;min-height:200px;">'
+              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:12px;">ENFORCEMENT HISTORY — NDIS QUALITY AND SAFEGUARDS COMMISSION</div>'
+              + actionsHtml
+            + '</div>'
+            + '<div id="panel-abn" style="display:none;padding:16px;min-height:200px;">'
+              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:12px;">AUSTRALIAN BUSINESS REGISTER DATA</div>'
+              + abnHtml
+            + '</div>'
+            + '<div style="border-top:1px solid #1a1a1a;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:#080808;">'
+              + '<span style="color:#2a2a2a;font-size:10px;letter-spacing:1px;">ALL DATA SOURCED FROM PUBLIC RECORDS</span>'
+              + '<span style="color:#c8001a;font-size:10px;letter-spacing:2px;font-weight:900;">NDIS.ONTHERECORD.FYI</span>'
+            + '</div>';
+
+          tabNames.forEach(function(t) {
+            var btn = document.getElementById('tab-btn-' + t);
+            if (btn) btn.addEventListener('click', function() { switchTab(t); });
+          });
+
+          document.title = (p.legal_name || 'Provider').toUpperCase() + ' | NDIS On The Record';
+
+          // Sound: data loaded
+          if (window.__sounds) window.__sounds.playAlert();
+
+        } catch(e) {
+          card.innerHTML = '<div style="text-align:center;padding:60px;color:#333;font-size:12px;">Failed to load provider profile.</div>';
+        }
+      }
+
+      loadProfile();
+    </script>
+    <script>
+      import { playAlert } from '../../../scripts/sounds';
+      (window as any).__sounds = { playAlert };
+    </script>
+  </body>
+</html>

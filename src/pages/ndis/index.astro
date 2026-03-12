@@ -1,0 +1,270 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+
+export const prerender = false;
+
+const SITE_TITLE = 'NDIS On The Record | Provider Red Flag Register';
+const SITE_DESCRIPTION = 'Every banned NDIS provider. Every compliance action. Every banning order. All public data from the NDIS Quality and Safeguards Commission.';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+    <style>
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+        background: #050505;
+        color: #e8e8e8;
+        font-family: 'Courier New', monospace;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .scanlines {
+        position: fixed; inset: 0;
+        background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.13) 2px, rgba(0,0,0,0.13) 4px);
+        pointer-events: none; z-index: 50;
+      }
+      .vignette {
+        position: fixed; inset: 0;
+        background: radial-gradient(ellipse at center, transparent 30%, rgba(110,0,0,0.55) 100%);
+        pointer-events: none; z-index: 2;
+        animation: vignette-pulse 4s ease-in-out infinite;
+      }
+      @keyframes vignette-pulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
+
+      .corner { position: fixed; width: 44px; height: 44px; opacity: 0.25; z-index: 10; }
+      .corner-tl { top: 24px; left: 24px; border-top: 1px solid #cc0000; border-left: 1px solid #cc0000; }
+      .corner-tr { top: 24px; right: 24px; border-top: 1px solid #cc0000; border-right: 1px solid #cc0000; }
+      .corner-bl { bottom: 24px; left: 24px; border-bottom: 1px solid #cc0000; border-left: 1px solid #cc0000; }
+      .corner-br { bottom: 24px; right: 24px; border-bottom: 1px solid #cc0000; border-right: 1px solid #cc0000; }
+
+      .splash {
+        position: relative; z-index: 10;
+        text-align: center;
+        padding: 1rem 3vw;
+        width: 100%;
+      }
+
+      .title-wrap {
+        font-weight: 900;
+        font-size: clamp(1.2rem, 4.5vw, 4.2rem);
+        letter-spacing: 0.13em;
+        line-height: 1;
+        margin-bottom: 1.6rem;
+        white-space: nowrap;
+        display: block;
+      }
+
+      .type-char {
+        display: inline;
+        opacity: 0;
+        color: #cc0000;
+        transition: color 0.4s;
+      }
+      .type-char.typed   { opacity: 1; }
+      .type-char.settled { color: #e8e8e8; }
+
+      .word-gap { display: inline-block; width: 0.35em; }
+
+      .type-cursor {
+        display: inline-block;
+        width: 0.5em; height: 0.82em;
+        background: #cc0000;
+        vertical-align: middle;
+        margin-left: 1px;
+        animation: blink 0.7s step-end infinite;
+      }
+      @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+      .type-cursor.hidden { display: none; }
+
+      .record-o {
+        display: inline-block;
+        border-radius: 3px;
+        background: #cc0000;
+        vertical-align: middle;
+        position: relative;
+        top: -0.04em;
+        margin-left: 0.25em;
+        opacity: 0;
+        transition: opacity 0.15s;
+        animation: rec-pulse 1.9s ease-in-out infinite;
+      }
+      .record-o.typed { opacity: 1; }
+
+      @keyframes rec-pulse {
+        0%,100% {
+          box-shadow:
+            0 0 4px 2px rgba(220,0,0,0.8),
+            0 0 14px 4px rgba(204,0,0,0.5),
+            0 0 30px 6px rgba(180,0,0,0.2);
+        }
+        50% {
+          box-shadow:
+            0 0 8px 3px rgba(255,60,60,1),
+            0 0 24px 8px rgba(220,0,0,0.75),
+            0 0 55px 14px rgba(200,0,0,0.4);
+        }
+      }
+
+      .tagline {
+        color: #555;
+        font-size: clamp(0.52rem, 1.1vw, 0.76rem);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        min-height: 1.4em;
+        margin-bottom: 2.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        border-right: 2px solid #555;
+        display: inline-block;
+      }
+      .tagline.done { border-right-color: transparent; }
+
+      .enter-btn {
+        background: transparent;
+        border: 2px solid #cc0000;
+        color: #cc0000;
+        font-family: 'Courier New', monospace;
+        font-size: clamp(0.7rem, 1.5vw, 0.95rem);
+        font-weight: 900;
+        letter-spacing: 0.35em;
+        text-transform: uppercase;
+        padding: 0.9rem 2.6rem;
+        cursor: pointer;
+        opacity: 0;
+        transition: background 0.15s, color 0.15s, transform 0.1s, opacity 0.6s;
+      }
+      .enter-btn.visible {
+        opacity: 1;
+        animation: btn-pulse 2.2s ease-in-out infinite;
+      }
+      .enter-btn:hover { background: #cc0000; color: #050505; transform: scale(1.02); }
+      .enter-btn:active { transform: scale(0.97); }
+      @keyframes btn-pulse {
+        0%,100% { box-shadow: 0 0 8px rgba(204,0,0,0.5), 0 0 20px rgba(204,0,0,0.15); }
+        50%      { box-shadow: 0 0 22px rgba(204,0,0,0.8), 0 0 55px rgba(204,0,0,0.35); }
+      }
+
+      .status-line {
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        font-size: 0.58rem; letter-spacing: 0.25em; color: #1a1a1a; z-index: 10; white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+
+    <div class="splash">
+      <div class="title-wrap" id="title">
+        <span class="type-cursor" id="title-cursor"></span>
+      </div>
+      <div><div class="tagline" id="tagline"></div></div>
+      <div style="margin-top:2.6rem;">
+        <button class="enter-btn" id="enter-btn">ENTER THE REGISTER &#9654;</button>
+      </div>
+    </div>
+
+    <div class="status-line">NDIS.ONTHERECORD.FYI &mdash; NDIS PROVIDER RED FLAG REGISTER</div>
+
+    <script>
+      import { playBeep, playTypeTick, playAccessGranted, unlockAudio } from '../../scripts/sounds';
+
+      const _unlock = () => { unlockAudio(); ['click','touchstart','keydown'].forEach(e => document.removeEventListener(e, _unlock)); };
+      ['click','touchstart','keydown'].forEach(e => document.addEventListener(e, _unlock, { passive: true }));
+
+      function sizeRecordBtn() {
+        const wrap = document.getElementById('title');
+        const dot  = document.querySelector('.record-o') as HTMLElement | null;
+        if (!wrap || !dot) return;
+        const px = wrap.getBoundingClientRect().height * 0.45;
+        dot.style.width  = `${px}px`;
+        dot.style.height = `${px}px`;
+      }
+      window.addEventListener('resize', sizeRecordBtn);
+
+      const titleContainer = document.getElementById('title')!;
+      const titleCursor    = document.getElementById('title-cursor')!;
+
+      interface Slot { el: HTMLElement; isGap: boolean; isRecord: boolean }
+      const slots: Slot[] = [];
+
+      // "NDIS ON THE RECORD ●"
+      const words = [['N','D','I','S'], ['O','N'], ['T','H','E'], ['R','E','C','O','R','D'], ['●']];
+
+      words.forEach((word, wi) => {
+        if (wi > 0) {
+          const gap = document.createElement('span');
+          gap.className = 'word-gap';
+          titleContainer.insertBefore(gap, titleCursor);
+          slots.push({ el: gap, isGap: true, isRecord: false });
+        }
+        word.forEach(ch => {
+          if (ch === '●') {
+            const btn = document.createElement('span');
+            btn.className = 'record-o';
+            titleContainer.insertBefore(btn, titleCursor);
+            slots.push({ el: btn, isGap: false, isRecord: true });
+          } else {
+            const span = document.createElement('span');
+            span.className = 'type-char';
+            span.textContent = ch;
+            titleContainer.insertBefore(span, titleCursor);
+            slots.push({ el: span, isGap: false, isRecord: false });
+          }
+        });
+      });
+
+      let idx = 0;
+      function typeNext() {
+        if (idx >= slots.length) {
+          titleCursor.classList.add('hidden');
+          playAccessGranted();
+          slots.forEach(s => { if (!s.isGap && !s.isRecord) s.el.classList.add('settled'); });
+          setTimeout(typeTagline, 500);
+          return;
+        }
+        const s = slots[idx];
+        if (!s.isGap) {
+          s.el.classList.add('typed');
+          if (s.isRecord) sizeRecordBtn();
+          playTypeTick();
+        }
+        idx++;
+        const extra = s.isRecord ? 170 : 0;
+        setTimeout(typeNext, 90 + extra + (Math.random() * 28 - 14));
+      }
+      setTimeout(typeNext, 600);
+
+      const taglineEl   = document.getElementById('tagline')!;
+      const taglineText = 'Every banned provider. Every compliance action. All public data.';
+      let ti = 0;
+      function typeTagline() {
+        if (ti >= taglineText.length) {
+          taglineEl.classList.add('done');
+          setTimeout(() => (document.getElementById('enter-btn') as HTMLButtonElement).classList.add('visible'), 300);
+          return;
+        }
+        taglineEl.textContent += taglineText[ti];
+        if (taglineText[ti] !== ' ') playTypeTick();
+        ti++;
+        setTimeout(typeTagline, 48 + (Math.random() * 16 - 8));
+      }
+
+      document.getElementById('enter-btn')!.addEventListener('click', () => {
+        playBeep();
+        setTimeout(() => { window.location.href = '/ndis/explore'; }, 130);
+      });
+    </script>
+  </body>
+</html>

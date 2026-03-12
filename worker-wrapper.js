@@ -40,6 +40,21 @@ async function handleScheduled(event, env, ctx) {
       endpoint = '/api/internal/etl/photos';
       description = 'Photos ETL';
     }
+    // Daily at 5:00 AM - NDIS compliance scrape
+    else if (cron === '0 5 * * *') {
+      endpoint = '/api/internal/etl/ndis-compliance';
+      description = 'NDIS Compliance ETL';
+    }
+    // Daily at 5:30 AM - NDIS ABR enrichment
+    else if (cron === '30 5 * * *') {
+      endpoint = '/api/internal/etl/ndis-abr';
+      description = 'NDIS ABR Enrichment';
+    }
+    // Daily at 6:00 AM - NDIS scorer
+    else if (cron === '0 6 * * *') {
+      endpoint = '/api/internal/etl/ndis-scorer';
+      description = 'NDIS Scorer';
+    }
 
     if (endpoint) {
       console.log(`[CRON] Running ${description}: ${endpoint}`);

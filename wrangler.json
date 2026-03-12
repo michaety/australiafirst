@@ -43,7 +43,8 @@
   },
   "routes": [
     { "pattern": "ontherecord.fyi/*", "zone_name": "ontherecord.fyi" },
-    { "pattern": "www.ontherecord.fyi/*", "zone_name": "ontherecord.fyi" }
+    { "pattern": "www.ontherecord.fyi/*", "zone_name": "ontherecord.fyi" },
+    { "pattern": "ndis.ontherecord.fyi/*", "zone_name": "ontherecord.fyi" }
   ],
   "triggers": {
     "crons": [
@@ -51,7 +52,10 @@
       "30 2 * * *",
       "0 3 * * *",
       "30 3 * * *",
-      "0 4 * * *"
+      "0 4 * * *",
+      "0 5 * * *",
+      "30 5 * * *",
+      "0 6 * * *"
     ]
   }
 }
