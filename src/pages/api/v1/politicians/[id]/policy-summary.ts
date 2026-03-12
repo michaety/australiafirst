@@ -18,7 +18,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   try {
     const [polRow, scoresRow] = await Promise.all([
-      DB.prepare(`SELECT name, party_name FROM politicians WHERE id = ?`)
+      DB.prepare(`SELECT p.name, pt.name AS party_name FROM politicians p LEFT JOIN parties pt ON pt.id = p.party_id WHERE p.id = ?`)
         .bind(id)
         .first<{ name: string; party_name: string | null }>(),
       DB.prepare(
