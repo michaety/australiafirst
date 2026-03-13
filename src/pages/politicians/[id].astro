@@ -47,6 +47,21 @@ const { id } = Astro.params;
         animation: type-cursor-blink 0.7s step-end infinite;
       }
       .type-field-cursor.done { display: none; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* ── Mobile layout ── */
+      @media (max-width: 600px) {
+        #page-wrap { padding: 16px 10px !important; gap: 16px !important; }
+        #page-wrap > div:first-child { display: none; } /* hide header block on mobile */
+        #profile-top-row { flex-direction: column !important; }
+        #profile-photo-col { width: 100% !important; min-width: unset !important; }
+        #profile-photo-col .height-ruler { display: none !important; }
+        #profile-photo-col .photo-frame { width: 100% !important; height: 200px !important; }
+        #profile-bio-col { border-left: none !important; border-top: 1px solid #1a1a1a !important; padding: 14px !important; }
+        #tab-btn-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        #tab-btn-bar::-webkit-scrollbar { display: none; }
+        #tab-btn-bar button { flex: 0 0 auto !important; min-width: 72px; padding: 12px 10px !important; font-size: 8px !important; }
+      }
     </style>
   </head>
   <body style="margin:0;padding:0;background:#050505;color:#e8e8e8;font-family:'Courier New',monospace;">
@@ -252,6 +267,19 @@ const { id } = Astro.params;
         html += buildPolicySection('NO CLEAR POSITION', unclear, 'policy-unclear');
         html += '<div style="color:#333;font-size:10px;margin-top:4px;">Source: They Vote For You — theyvoteforyou.org.au</div>';
         return html;
+      }
+
+      // ── Promise filter ───────────────────────────────────────────────────────
+
+      function filterPromises(status) {
+        var cards = document.querySelectorAll('.promise-card');
+        cards.forEach(function(c) {
+          c.style.display = (status === 'all' || c.dataset.status === status) ? '' : 'none';
+        });
+        ['all','broken','partial','pending','kept'].forEach(function(s) {
+          var btn = document.getElementById('pf-' + s);
+          if (btn) btn.style.opacity = (status === s) ? '1' : '0.4';
+        });
       }
 
       // ── Actions HTML ────────────────────────────────────────────────────────
@@ -472,13 +500,21 @@ const { id } = Astro.params;
           .catch(function() { if (card) card.style.display = 'none'; });
       }
 
+      var TAB_SPINNER = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 0;gap:14px;">'
+        + '<div style="width:28px;height:28px;border:2px solid #1a1a1a;border-top-color:#c8001a;border-radius:50%;animation:spin 0.7s linear infinite;"></div>'
+        + '<div style="color:#2a2a2a;font-size:9px;letter-spacing:3px;">ANALYSING PROMISES...</div>'
+        + '</div>';
+
       // ── Load profile ────────────────────────────────────────────────────────
 
       async function loadProfile() {
         var card = document.getElementById('mugshot-card');
         try {
-          var res = await fetch('/api/v1/politicians/' + politicianId + '.json');
-          var policyRes = await fetch('/api/v1/politicians/' + politicianId + '/policy-scores.json');
+          // Fetch profile and policy scores in parallel
+          var [res, policyRes] = await Promise.all([
+            fetch('/api/v1/politicians/' + politicianId + '.json'),
+            fetch('/api/v1/politicians/' + politicianId + '/policy-scores.json'),
+          ]);
           if (res.status === 404) {
             card.innerHTML = '<div style="text-align:center;padding:60px;color:#333;font-size:12px;">Politician not found.</div>';
             return;
@@ -486,8 +522,124 @@ const { id } = Astro.params;
           var data = await res.json();
           var policyData = policyRes.ok ? await policyRes.json() : { policyScores: [] };
 
-          // Auto-assess promises if any are pending
-          var hasPending = (data.promises || []).some(function(pr) { return pr.status === 'pending'; });
+          // ── Phase 1: render bio immediately ───────────────────────────────
+          var p = data.politician;
+          var actions0 = data.actions || [];
+          var donations0 = data.donations || [];
+          var foreignTies0 = data.foreignTies || [];
+          var partyDonations0 = data.partyDonations || [];
+          var promises0 = data.promises || [];
+          var brokenCount0 = promises0.filter(function(pr) { return pr.status === 'broken'; }).length;
+          var caseNum = 'AF-' + (p.id || '').replace(/[^0-9]/g, '').slice(0, 6);
+          var chamberLabel = p.chamber === 'senate' ? 'Senator' : 'Member of Parliament';
+          var photoImgHtml = p.photoUrl
+            ? '<img src="' + esc(p.photoUrl) + '" alt="' + esc(p.name) + '" style="width:100%;height:100%;object-fit:cover;object-position:top;filter:grayscale(85%) contrast(1.4) brightness(0.75) sepia(20%);display:block;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+            : '';
+          var noPhotoDisplay = p.photoUrl ? 'none' : 'flex';
+          var tabBtnBase = 'flex:1;padding:10px 4px;border:none;font-size:9px;font-weight:900;letter-spacing:1px;cursor:pointer;font-family:\'Courier New\',monospace;border-bottom:2px solid transparent;';
+
+          card.innerHTML =
+            '<div style="background:#c8001a;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;">'
+              + '<span style="color:#fff;font-size:11px;font-weight:900;letter-spacing:3px;">ON THE RECORD — PUBLIC RECORD</span>'
+              + '<span style="color:rgba(255,255,255,0.7);font-size:10px;letter-spacing:1px;">CASE #' + esc(caseNum) + '</span>'
+            + '</div>'
+            + '<div id="profile-top-row" style="display:flex;border-bottom:1px solid #1e1e1e;">'
+              + '<div id="profile-photo-col" style="position:relative;width:200px;min-width:200px;background:#111;overflow:hidden;">'
+                + '<div class="height-ruler" style="position:absolute;right:0;top:0;bottom:0;width:28px;background:#0a0a0a;border-left:1px solid #222;display:flex;flex-direction:column;justify-content:space-between;padding:8px 0;z-index:2;">'
+                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">6\'2"</span>'
+                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">6\'0"</span>'
+                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'10"</span>'
+                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'8"</span>'
+                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'6"</span>'
+                + '</div>'
+                + '<div class="photo-frame" style="width:172px;height:220px;overflow:hidden;position:relative;background:#1a1a1a;">'
+                  + photoImgHtml
+                  + '<div style="width:100%;height:100%;display:' + noPhotoDisplay + ';align-items:center;justify-content:center;color:#333;font-size:11px;text-align:center;padding:10px;">PHOTO<br>UNAVAILABLE</div>'
+                  + '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,0.7) 100%);pointer-events:none;"></div>'
+                  + '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;"></div>'
+                + '</div>'
+                + '<div style="background:#0a0a0a;border-top:1px solid #1e1e1e;padding:8px;text-align:center;">'
+                  + '<div style="color:#c8001a;font-size:10px;letter-spacing:2px;margin-bottom:3px;">DAYS IN OFFICE</div>'
+                  + '<div id="days-in-office-val" style="color:#666;font-size:11px;">—</div>'
+                  + '<div style="color:#555;font-size:9px;letter-spacing:2px;margin-top:8px;margin-bottom:2px;">NEXT ELECTION</div>'
+                  + '<div id="days-until-election-val" style="color:#444;font-size:11px;">—</div>'
+                + '</div>'
+              + '</div>'
+              + '<div id="profile-bio-col" style="flex:1;padding:20px;border-left:1px solid #1a1a1a;display:flex;flex-direction:column;gap:12px;">'
+                + '<div>'
+                  + '<div style="color:#444;font-size:10px;letter-spacing:3px;margin-bottom:4px;">FULL NAME</div>'
+                  + '<div id="profile-name-val" style="color:#f0f0f0;font-size:22px;font-weight:900;line-height:1.1;letter-spacing:-0.5px;"></div>'
+                + '</div>'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">OFFICE</div><div style="color:#aaa;font-size:12px;">' + esc(chamberLabel) + '</div></div>'
+                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">PARTY</div><div style="color:#aaa;font-size:12px;">' + esc(p.partyName || p.party || 'Unknown') + '</div></div>'
+                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">ELECTORATE</div><div style="color:#aaa;font-size:12px;">' + esc(p.electorate || 'N/A') + '</div></div>'
+                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">STATUS</div><div style="color:#c8001a;font-weight:900;letter-spacing:2px;font-size:12px;">IN POWER</div></div>'
+                + '</div>'
+                + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">'
+                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + actions0.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">ACTIONS</div></div>'
+                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + (donations0.length || partyDonations0.length) + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">DONORS</div></div>'
+                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div id="broken-count-val" style="color:#c8001a;font-size:16px;font-weight:900;">' + brokenCount0 + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">BROKEN PROMISES</div></div>'
+                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + foreignTies0.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">FOREIGN LINKS</div></div>'
+                + '</div>'
+                + '<div style="margin-top:16px;">'
+                  + '<div style="color:#333;font-size:9px;letter-spacing:3px;margin-bottom:6px;">POLITICAL SPECTRUM</div>'
+                  + '<div style="display:flex;justify-content:space-between;color:#2a2a2a;font-size:8px;letter-spacing:1px;margin-bottom:3px;"><span>LEFT</span><span>CENTRE</span><span>RIGHT</span></div>'
+                  + '<div style="position:relative;height:4px;background:linear-gradient(to right,#224499 0%,#444 50%,#991122 100%);border-radius:2px;">'
+                    + '<div id="spectrum-marker" style="position:absolute;top:-6px;width:12px;height:12px;background:#1a1a1a;border:2px solid #c8001a;border-radius:50%;transform:translateX(-50%);left:50%;transition:left 0.4s;"></div>'
+                  + '</div>'
+                  + '<div id="spectrum-label" style="color:#444;font-size:9px;letter-spacing:2px;text-align:center;margin-top:5px;"></div>'
+                + '</div>'
+              + '</div>'
+            + '</div>'
+            + '<div id="tab-btn-bar" style="display:flex;border-bottom:1px solid #1a1a1a;background:#080808;">'
+              + '<button id="tab-btn-actions" style="' + tabBtnBase + 'background:#111;border-bottom-color:#c8001a;color:#f0f0f0;">ACTIONS</button>'
+              + '<button id="tab-btn-donors" style="' + tabBtnBase + 'background:transparent;color:#444;">DONATIONS</button>'
+              + '<button id="tab-btn-promises" style="' + tabBtnBase + 'background:transparent;color:#444;">PROMISES</button>'
+              + '<button id="tab-btn-foreign" style="' + tabBtnBase + 'background:transparent;color:#444;">FOREIGN TIES</button>'
+              + '<button id="tab-btn-policy" style="' + tabBtnBase + 'background:transparent;color:#444;">POLICY</button>'
+            + '</div>'
+            + '<div id="tab-panels-area">' + TAB_SPINNER + '</div>';
+
+          // Start typewriter animations immediately
+          document.title = p.name.toUpperCase() + ' | On The Record';
+          var nameEl = document.getElementById('profile-name-val');
+          var nameSoundFn = function() { if (window.__sounds && window.__sounds.playTypeTickName) window.__sounds.playTypeTickName(); };
+          var daysSoundFn = function() { if (window.__sounds && window.__sounds.playTypeTickDays) window.__sounds.playTypeTickDays(); };
+          if (nameEl) typeInto(nameEl, (p.name || '').toUpperCase(), 55, nameSoundFn);
+          var daysEl = document.getElementById('days-in-office-val');
+          if (daysEl) {
+            var termDate = p.termStart || '2025-05-03';
+            var start = new Date(termDate);
+            var days = Math.floor((new Date().getTime() - start.getTime()) / 86400000);
+            typeInto(daysEl, days.toLocaleString() + ' days', 60, daysSoundFn);
+          }
+          var electionEl = document.getElementById('days-until-election-val');
+          if (electionEl) {
+            var daysUntil = Math.ceil((new Date('2028-05-03').getTime() - new Date().getTime()) / 86400000);
+            typeInto(electionEl, daysUntil.toLocaleString() + ' days', 50, daysSoundFn);
+          }
+          (function() {
+            var partyStr = ((p.party || '') + ' ' + (p.partyName || '')).toLowerCase();
+            var score = 0;
+            if (partyStr.includes('green')) score = -75;
+            else if (partyStr.includes('labor') || partyStr.includes('labour')) score = -35;
+            else if (partyStr.includes('centre alliance') || partyStr.includes('sa-best')) score = -10;
+            else if (partyStr.includes('national') && !partyStr.includes('liberal national')) score = 35;
+            else if (partyStr.includes('liberal national') || partyStr.includes('lnp')) score = 55;
+            else if (partyStr.includes('liberal')) score = 55;
+            else if (partyStr.includes('one nation') || partyStr.includes('phon')) score = 75;
+            else if (partyStr.includes('united australia') || partyStr.includes('uap')) score = 65;
+            else if (partyStr.includes('katter') || partyStr.includes('kap')) score = 45;
+            var pct = ((score + 100) / 2);
+            var marker = document.getElementById('spectrum-marker');
+            var label = document.getElementById('spectrum-label');
+            if (marker) setTimeout(function() { marker.style.left = pct + '%'; }, 100);
+            if (label) label.textContent = score < -20 ? 'LEFT' : score > 20 ? 'RIGHT' : 'CENTRE';
+          })();
+
+          // ── Phase 2: assessment then render tabs ───────────────────────────
+          var hasPending = promises0.some(function(pr) { return pr.status === 'pending'; });
           if (hasPending) {
             try {
               await fetch('/api/v1/politicians/' + politicianId + '/promises-assess', { method: 'POST' });
@@ -503,39 +655,55 @@ const { id } = Astro.params;
           var foreignTies = data.foreignTies || [];
           var policyScores = policyData.policyScores || [];
           var partyDonations = data.partyDonations || [];
-
-          var caseNum = 'AF-' + (p.id || '').replace(/[^0-9]/g, '').slice(0, 6);
-          var chamberLabel = p.chamber === 'senate' ? 'Senator' : 'Member of Parliament';
           var brokenCount = promises.filter(function(pr) { return pr.status === 'broken'; }).length;
 
-          var photoImgHtml = p.photoUrl
-            ? '<img src="' + esc(p.photoUrl) + '" alt="' + esc(p.name) + '" style="width:100%;height:100%;object-fit:cover;object-position:top;filter:grayscale(85%) contrast(1.4) brightness(0.75) sepia(20%);display:block;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
-            : '';
-          var noPhotoDisplay = p.photoUrl ? 'none' : 'flex';
+          // Update broken promises stat in the bio (already rendered in Phase 1)
+          var brokenEl = document.getElementById('broken-count-val');
+          if (brokenEl) brokenEl.textContent = brokenCount;
 
           var actionsHtml = buildActionsHtml(actions);
           var donationsHtml = buildDonationsHtml(donations, partyDonations, p);
 
-          // Promises HTML
+          // Promises HTML — sorted broken first, then partial, pending, kept
+          var statusOrder = { broken: 0, partial: 1, pending: 2, kept: 3 };
+          var sortedPromises = promises.slice().sort(function(a, b) {
+            return (statusOrder[a.status] ?? 2) - (statusOrder[b.status] ?? 2);
+          });
+          var keptCount = promises.filter(function(pr) { return pr.status === 'kept'; }).length;
+          var partialCount = promises.filter(function(pr) { return pr.status === 'partial'; }).length;
+          var pendingCount = promises.filter(function(pr) { return pr.status === 'pending'; }).length;
+
+          function buildPromiseCard(pr) {
+            var st = pr.status || 'pending';
+            var icon = st === 'kept' ? '✓ KEPT' : st === 'broken' ? '✗ BROKEN' : st === 'partial' ? '~ PARTIAL' : '? PENDING';
+            return '<div class="promise-card" data-status="' + st + '" style="padding:12px;background:#0d0d0d;border:1px solid #1a1a1a;border-left:3px solid ' + promiseBorderColor(st) + ';margin-bottom:10px;">'
+              + '<div style="color:#888;font-size:12px;font-style:italic;margin-bottom:6px;">"' + esc(pr.title) + '"</div>'
+              + '<div style="display:flex;gap:8px;align-items:flex-start;">'
+              + '<span style="font-size:10px;font-weight:900;letter-spacing:1px;min-width:60px;color:' + promiseStatusColor(st) + ';">' + icon + '</span>'
+              + '<span style="color:#aaa;font-size:12px;">' + esc(pr.description || pr.notes || '') + '</span>'
+              + '</div>'
+              + '<div style="margin-top:6px;">'
+              + (pr.madeDate ? '<span style="font-size:10px;color:#555;margin-right:8px;">Made: ' + formatDate(pr.madeDate) + '</span>' : '')
+              + (pr.sourceUrl ? '<a href="' + esc(pr.sourceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Source ↗</a>' : '')
+              + (pr.evidenceUrl ? '<a href="' + esc(pr.evidenceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Evidence ↗</a>' : '')
+              + '</div></div>';
+          }
+
+          var filterBtnBase = 'background:transparent;border:1px solid #222;color:#444;font-family:\'Courier New\',monospace;font-size:9px;font-weight:900;letter-spacing:1px;padding:3px 8px;cursor:pointer;text-transform:uppercase;';
           var promisesHtml = '';
           if (promises.length === 0) {
             promisesHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">Promise tracking is manually curated. No promises have been recorded for this politician yet.</div>';
           } else {
-            promises.forEach(function(pr) {
-              var st = pr.status || 'pending';
-              var icon = st === 'kept' ? '✓ KEPT' : st === 'broken' ? '✗ BROKEN' : st === 'partial' ? '~ PARTIAL' : '? PENDING';
-              promisesHtml += '<div style="padding:12px;background:#0d0d0d;border:1px solid #1a1a1a;border-left:3px solid ' + promiseBorderColor(st) + ';margin-bottom:10px;">'
-                + '<div style="color:#888;font-size:12px;font-style:italic;margin-bottom:6px;">"' + esc(pr.title) + '"</div>'
-                + '<div style="display:flex;gap:8px;align-items:flex-start;">'
-                + '<span style="font-size:10px;font-weight:900;letter-spacing:1px;min-width:60px;color:' + promiseStatusColor(st) + ';">' + icon + '</span>'
-                + '<span style="color:#aaa;font-size:12px;">' + esc(pr.description || pr.notes || '') + '</span>'
-                + '</div>'
-                + '<div style="margin-top:6px;">'
-                + (pr.madeDate ? '<span style="font-size:10px;color:#555;margin-right:8px;">Made: ' + formatDate(pr.madeDate) + '</span>' : '')
-                + (pr.sourceUrl ? '<a href="' + esc(pr.sourceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Source ↗</a>' : '')
-                + (pr.evidenceUrl ? '<a href="' + esc(pr.evidenceUrl) + '" target="_blank" rel="noopener" style="font-size:10px;color:#4499ff;margin-right:8px;text-decoration:none;">Evidence ↗</a>' : '')
-                + '</div></div>';
-            });
+            promisesHtml = '<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">'
+              + '<button onclick="filterPromises(\'all\')" id="pf-all" style="' + filterBtnBase + 'border-color:#555;color:#ccc;">ALL (' + promises.length + ')</button>'
+              + '<button onclick="filterPromises(\'broken\')" id="pf-broken" style="' + filterBtnBase + 'border-color:#c8001a;color:#c8001a;">✗ BROKEN (' + brokenCount + ')</button>'
+              + (partialCount ? '<button onclick="filterPromises(\'partial\')" id="pf-partial" style="' + filterBtnBase + 'border-color:#ff8c00;color:#ff8c00;">~ PARTIAL (' + partialCount + ')</button>' : '')
+              + (pendingCount ? '<button onclick="filterPromises(\'pending\')" id="pf-pending" style="' + filterBtnBase + '">? PENDING (' + pendingCount + ')</button>' : '')
+              + (keptCount ? '<button onclick="filterPromises(\'kept\')" id="pf-kept" style="' + filterBtnBase + 'border-color:#2bff6e;color:#2bff6e;">✓ KEPT (' + keptCount + ')</button>' : '')
+              + '</div>'
+              + '<div id="promises-list">'
+              + sortedPromises.map(buildPromiseCard).join('')
+              + '</div>';
           }
 
           // Foreign ties HTML
@@ -554,149 +722,44 @@ const { id } = Astro.params;
 
           var policyHtml = buildPolicyHtml(policyScores);
 
-          var tabBtnBase = 'flex:1;padding:10px 4px;border:none;font-size:9px;font-weight:900;letter-spacing:1px;cursor:pointer;font-family:\'Courier New\',monospace;border-bottom:2px solid transparent;';
-
-          card.innerHTML =
-            '<div style="background:#c8001a;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;">'
-              + '<span style="color:#fff;font-size:11px;font-weight:900;letter-spacing:3px;">ON THE RECORD — PUBLIC RECORD</span>'
-              + '<span style="color:rgba(255,255,255,0.7);font-size:10px;letter-spacing:1px;">CASE #' + esc(caseNum) + '</span>'
-            + '</div>'
-            + '<div style="display:flex;border-bottom:1px solid #1e1e1e;">'
-              + '<div style="position:relative;width:200px;min-width:200px;background:#111;overflow:hidden;">'
-                + '<div style="position:absolute;right:0;top:0;bottom:0;width:28px;background:#0a0a0a;border-left:1px solid #222;display:flex;flex-direction:column;justify-content:space-between;padding:8px 0;z-index:2;">'
-                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">6\'2"</span>'
-                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">6\'0"</span>'
-                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'10"</span>'
-                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'8"</span>'
-                  + '<span style="color:#444;font-size:7px;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:2px;">5\'6"</span>'
-                + '</div>'
-                + '<div style="width:172px;height:220px;overflow:hidden;position:relative;background:#1a1a1a;">'
-                  + photoImgHtml
-                  + '<div style="width:100%;height:100%;display:' + noPhotoDisplay + ';align-items:center;justify-content:center;color:#333;font-size:11px;text-align:center;padding:10px;">PHOTO<br>UNAVAILABLE</div>'
-                  + '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,0.7) 100%);pointer-events:none;"></div>'
-                  + '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;"></div>'
-                + '</div>'
-                + '<div style="background:#0a0a0a;border-top:1px solid #1e1e1e;padding:8px;text-align:center;">'
-                  + '<div style="color:#c8001a;font-size:10px;letter-spacing:2px;margin-bottom:3px;">DAYS IN OFFICE</div>'
-                  + '<div id="days-in-office-val" style="color:#666;font-size:11px;">—</div>'
-                  + '<div style="color:#555;font-size:9px;letter-spacing:2px;margin-top:8px;margin-bottom:2px;">NEXT ELECTION</div>'
-                  + '<div id="days-until-election-val" style="color:#444;font-size:11px;">—</div>'
-                + '</div>'
+          // ── Phase 2: replace only the spinner area with real tab panels ─────
+          var tabArea = document.getElementById('tab-panels-area');
+          if (tabArea) {
+            tabArea.innerHTML =
+              '<div id="panel-actions" style="display:block;padding:16px;min-height:200px;">'
+                + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:12px;">DOCUMENTED ACTIONS AGAINST THE NATIONAL INTEREST</div>'
+                + actionsHtml
               + '</div>'
-              + '<div style="flex:1;padding:20px;border-left:1px solid #1a1a1a;display:flex;flex-direction:column;gap:12px;">'
-                + '<div>'
-                  + '<div style="color:#444;font-size:10px;letter-spacing:3px;margin-bottom:4px;">FULL NAME</div>'
-                  + '<div id="profile-name-val" style="color:#f0f0f0;font-size:22px;font-weight:900;line-height:1.1;letter-spacing:-0.5px;">' + esc(p.name).toUpperCase() + '</div>'
-                + '</div>'
-                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
-                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">OFFICE</div><div style="color:#aaa;font-size:12px;">' + esc(chamberLabel) + '</div></div>'
-                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">PARTY</div><div style="color:#aaa;font-size:12px;">' + esc(p.partyName || p.party || 'Unknown') + '</div></div>'
-                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">ELECTORATE</div><div style="color:#aaa;font-size:12px;">' + esc(p.electorate || 'N/A') + '</div></div>'
-                  + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">STATUS</div><div style="color:#c8001a;font-weight:900;letter-spacing:2px;font-size:12px;">IN POWER</div></div>'
-                + '</div>'
-                + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">'
-                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + actions.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">ACTIONS</div></div>'
-                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + (donations.length || partyDonations.length) + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">DONORS</div></div>'
-                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + brokenCount + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">BROKEN PROMISES</div></div>'
-                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + foreignTies.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">FOREIGN LINKS</div></div>'
-                + '</div>'
-                + '<div style="margin-top:16px;">'
-                  + '<div style="color:#333;font-size:9px;letter-spacing:3px;margin-bottom:6px;">POLITICAL SPECTRUM</div>'
-                  + '<div style="display:flex;justify-content:space-between;color:#2a2a2a;font-size:8px;letter-spacing:1px;margin-bottom:3px;"><span>LEFT</span><span>CENTRE</span><span>RIGHT</span></div>'
-                  + '<div style="position:relative;height:4px;background:linear-gradient(to right,#224499 0%,#444 50%,#991122 100%);border-radius:2px;">'
-                    + '<div id="spectrum-marker" style="position:absolute;top:-6px;width:12px;height:12px;background:#1a1a1a;border:2px solid #c8001a;border-radius:50%;transform:translateX(-50%);left:50%;transition:left 0.4s;"></div>'
-                  + '</div>'
-                  + '<div id="spectrum-label" style="color:#444;font-size:9px;letter-spacing:2px;text-align:center;margin-top:5px;"></div>'
-                + '</div>'
+              + '<div id="panel-donors" style="display:none;padding:16px;min-height:200px;">'
+                + donationsHtml
               + '</div>'
-            + '</div>'
-            + '<div style="display:flex;border-bottom:1px solid #1a1a1a;background:#080808;">'
-              + '<button id="tab-btn-actions" style="' + tabBtnBase + 'background:#111;border-bottom-color:#c8001a;color:#f0f0f0;">ACTIONS</button>'
-              + '<button id="tab-btn-donors" style="' + tabBtnBase + 'background:transparent;color:#444;">DONATIONS</button>'
-              + '<button id="tab-btn-promises" style="' + tabBtnBase + 'background:transparent;color:#444;">PROMISES</button>'
-              + '<button id="tab-btn-foreign" style="' + tabBtnBase + 'background:transparent;color:#444;">FOREIGN TIES</button>'
-              + '<button id="tab-btn-policy" style="' + tabBtnBase + 'background:transparent;color:#444;">POLICY</button>'
-            + '</div>'
-            + '<div id="panel-actions" style="display:block;padding:16px;min-height:200px;">'
-              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:12px;">DOCUMENTED ACTIONS AGAINST THE NATIONAL INTEREST</div>'
-              + actionsHtml
-            + '</div>'
-            + '<div id="panel-donors" style="display:none;padding:16px;min-height:200px;">'
-              + donationsHtml
-            + '</div>'
-            + '<div id="panel-promises" style="display:none;padding:16px;min-height:200px;">'
-              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">CAMPAIGN PROMISES & DELIVERY STATUS</div>'
-              + promisesHtml
-            + '</div>'
-            + '<div id="panel-foreign" style="display:none;padding:16px;min-height:200px;">'
-              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">FOREIGN ENTITY ASSOCIATIONS & RISK ASSESSMENT</div>'
-              + foreignHtml
-            + '</div>'
-            + '<div id="panel-policy" style="display:none;padding:16px;min-height:200px;">'
-              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:12px;">HOW THEY VOTE ON POLICIES — SOURCE: THEY VOTE FOR YOU</div>'
-              + policyHtml
-            + '</div>'
-            + '<div style="border-top:1px solid #1a1a1a;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:#080808;">'
-              + '<span style="color:#2a2a2a;font-size:10px;letter-spacing:1px;">ALL DATA SOURCED FROM PUBLIC RECORDS</span>'
-              + '<span style="color:#c8001a;font-size:10px;letter-spacing:2px;font-weight:900;">ONTHERECORD.FYI</span>'
-            + '</div>';
+              + '<div id="panel-promises" style="display:none;padding:16px;min-height:200px;">'
+                + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">CAMPAIGN PROMISES & DELIVERY STATUS</div>'
+                + promisesHtml
+              + '</div>'
+              + '<div id="panel-foreign" style="display:none;padding:16px;min-height:200px;">'
+                + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">FOREIGN ENTITY ASSOCIATIONS & RISK ASSESSMENT</div>'
+                + foreignHtml
+              + '</div>'
+              + '<div id="panel-policy" style="display:none;padding:16px;min-height:200px;">'
+                + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:12px;">HOW THEY VOTE ON POLICIES — SOURCE: THEY VOTE FOR YOU</div>'
+                + policyHtml
+              + '</div>'
+              + '<div style="border-top:1px solid #1a1a1a;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:#080808;">'
+                + '<span style="color:#2a2a2a;font-size:10px;letter-spacing:1px;">ALL DATA SOURCED FROM PUBLIC RECORDS</span>'
+                + '<span style="color:#c8001a;font-size:10px;letter-spacing:2px;font-weight:900;">ONTHERECORD.FYI</span>'
+              + '</div>';
+          }
 
+          // Wire up tab button clicks (buttons already in DOM from Phase 1)
           tabNames.forEach(function(t) {
-            document.getElementById('tab-btn-' + t).addEventListener('click', function() { switchTab(t); });
+            var btn = document.getElementById('tab-btn-' + t);
+            if (btn) btn.addEventListener('click', function() { switchTab(t); });
           });
 
-          // ── Typewriter reveals ──────────────────────────────────────────────
-          var nameEl = document.getElementById('profile-name-val');
-          var nameSoundFn = function() { if (window.__sounds && window.__sounds.playTypeTickName) window.__sounds.playTypeTickName(); };
-          var daysSoundFn = function() { if (window.__sounds && window.__sounds.playTypeTickDays) window.__sounds.playTypeTickDays(); };
-          if (nameEl) typeInto(nameEl, (p.name || '').toUpperCase(), 55, nameSoundFn);
-
-          var daysEl = document.getElementById('days-in-office-val');
-          if (daysEl) {
-            var daysText;
-            var termDate = p.termStart || '2025-05-03'; // fallback: 2025 federal election
-            var start = new Date(termDate);
-            var now = new Date();
-            var days = Math.floor((now.getTime() - start.getTime()) / 86400000);
-            daysText = days.toLocaleString() + ' days';
-            typeInto(daysEl, daysText, 60, daysSoundFn);
-          }
-
-          var electionEl = document.getElementById('days-until-election-val');
-          if (electionEl) {
-            var nextElection = new Date('2028-05-03');
-            var nowEl = new Date();
-            var daysUntil = Math.ceil((nextElection.getTime() - nowEl.getTime()) / 86400000);
-            typeInto(electionEl, daysUntil.toLocaleString() + ' days', 50, daysSoundFn);
-          }
-
-          // Political spectrum slider
-          (function() {
-            var partyStr = ((p.party || '') + ' ' + (p.partyName || '')).toLowerCase();
-            var score = 0;
-            if (partyStr.includes('green')) score = -75;
-            else if (partyStr.includes('labor') || partyStr.includes('labour')) score = -35;
-            else if (partyStr.includes('centre alliance') || partyStr.includes('sa-best')) score = -10;
-            else if (partyStr.includes('national') && !partyStr.includes('liberal national')) score = 35;
-            else if (partyStr.includes('liberal national') || partyStr.includes('lnp')) score = 55;
-            else if (partyStr.includes('liberal')) score = 55;
-            else if (partyStr.includes('one nation') || partyStr.includes('phon')) score = 75;
-            else if (partyStr.includes('united australia') || partyStr.includes('uap')) score = 65;
-            else if (partyStr.includes('katter') || partyStr.includes('kap')) score = 45;
-            var pct = ((score + 100) / 2);
-            var marker = document.getElementById('spectrum-marker');
-            if (marker) marker.style.left = pct + '%';
-            var label = document.getElementById('spectrum-label');
-            if (label) {
-              label.textContent = score <= -60 ? 'FAR LEFT' : score <= -25 ? 'LEFT' : score <= -5 ? 'CENTRE-LEFT' : score <= 5 ? 'CENTRE' : score <= 30 ? 'CENTRE-RIGHT' : score <= 60 ? 'RIGHT' : 'FAR RIGHT';
-            }
-          })();
-
-          // Load AI summary for the default (actions) tab immediately
+          // Load AI summary for the default (actions) tab
           aiLoaded['actions'] = true;
           loadAiSummary('actions');
-
-          document.title = p.name.toUpperCase() + ' | On The Record';
 
         } catch (e) {
           card.innerHTML = '<div style="text-align:center;padding:60px;color:#333;font-size:12px;">Failed to load profile.</div>';
