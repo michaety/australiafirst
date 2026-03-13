@@ -12,7 +12,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   if (!id) return jsonError('Missing politician ID', 400);
 
-  const cacheKey = `v1:policy-summary:${id}`;
+  const cacheKey = `v2:policy-summary:${id}`;
   const cached = await getCached<{ summary: string | null }>(KV, cacheKey);
   if (cached) return jsonResponse(cached, { ttl: CACHE_TTL });
 
@@ -70,7 +70,7 @@ ${policyLines}`;
           {
             role: 'system',
             content:
-              'You write plain English summaries of Australian politicians voting records for a general audience. Keep it factual, concise, and avoid political jargon. 2-3 sentences maximum. Do not start with their name.',
+              'You write plain English summaries of Australian politicians voting records for a general audience. Keep it factual, concise, and avoid political jargon. 2-3 sentences maximum. Never start with the politician\'s name or phrases like "This politician" or "As a member of". Start with what they vote for or against.',
           },
           { role: 'user', content: prompt },
         ],

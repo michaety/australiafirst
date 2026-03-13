@@ -72,7 +72,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
       .type-char.settled { color: #e8e8e8; }
 
       /* word gaps — em-sized so they scale with title font */
-      .word-gap { display: inline-block; width: 0.35em; }
+      .word-gap { display: inline-block; width: 0.6em; }
 
       /* blinking block cursor */
       .type-cursor {
@@ -97,22 +97,24 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
         margin-left: 0.25em;
         opacity: 0;
         transition: opacity 0.15s;
-        animation: rec-pulse 1.9s ease-in-out infinite;
+        animation: rec-pulse 1.4s ease-in-out infinite;
       }
-      .record-o.typed { opacity: 1; }
+      .record-o.typed { opacity: 1; animation: rec-pulse 1.4s ease-in-out infinite; }
 
       @keyframes rec-pulse {
         0%,100% {
+          opacity: 1;
           box-shadow:
             0 0 4px 2px rgba(220,0,0,0.8),
             0 0 14px 4px rgba(204,0,0,0.5),
             0 0 30px 6px rgba(180,0,0,0.2);
         }
         50% {
+          opacity: 0.15;
           box-shadow:
-            0 0 8px 3px rgba(255,60,60,1),
-            0 0 24px 8px rgba(220,0,0,0.75),
-            0 0 55px 14px rgba(200,0,0,0.4);
+            0 0 2px 1px rgba(220,0,0,0.3),
+            0 0 6px 2px rgba(204,0,0,0.2),
+            0 0 12px 3px rgba(180,0,0,0.1);
         }
       }
 
@@ -184,7 +186,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
     <div class="status-line">ONTHERECORD.FYI &mdash; FEDERAL POLITICIAN ACCOUNTABILITY REGISTER</div>
 
     <script>
-      import { playBeep, playTypeTick, playAccessGranted, unlockAudio } from '../scripts/sounds';
+      import { playTypeTick, playAccessGranted, unlockAudio } from '../scripts/sounds';
 
       // Unlock audio on first user gesture so typewriter sounds work
       const _unlock = () => { unlockAudio(); ['click','touchstart','keydown'].forEach(e => document.removeEventListener(e, _unlock)); };
@@ -249,7 +251,6 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
         if (!s.isGap) {
           s.el.classList.add('typed');
           if (s.isRecord) sizeRecordBtn();
-          playTypeTick();
         }
         idx++;
         const extra = s.isRecord ? 170 : 0;
@@ -275,7 +276,7 @@ const SITE_DESCRIPTION = 'A public accountability register for Australian federa
 
       // ── Enter ──────────────────────────────────────────────────────────────
       document.getElementById('enter-btn')!.addEventListener('click', () => {
-        playBeep();
+        playAccessGranted();
         setTimeout(() => { window.location.href = '/explore'; }, 130);
       });
     </script>

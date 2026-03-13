@@ -51,6 +51,8 @@ function ensureUnlocked() {
 export function unlockAudio(): void { ensureUnlocked(); }
 
 if (typeof document !== 'undefined') {
+  // Try immediately — works if browser allows autoplay or user has prior interaction with site
+  ensureUnlocked();
   const unlock = () => { ensureUnlocked(); ['click','touchstart','keydown'].forEach(e => document.removeEventListener(e, unlock)); };
   ['click','touchstart','keydown'].forEach(e => document.addEventListener(e, unlock, { passive: true }));
 }
@@ -73,9 +75,8 @@ function createRide(sfx: ReturnType<typeof makeSound>, duration: number) {
   };
 }
 
-// Splash: chirp1 rides for 0.8s then can re-trigger — matches title burst (~1.2s)
-// and re-fires naturally during the longer tagline (~2.4s).
-const rideSplash      = SFX ? createRide(SFX.chirp1, 0.8) : () => {};
+// Splash: chirp1 rides for 0.9s then can re-trigger — fires ~3 times during tagline (~2.4s).
+const rideSplash      = SFX ? createRide(SFX.chirp1, 0.9) : () => {};
 
 // Profile name: chirp1 short burst (0.35s) — cycles through a ~1s name reveal
 const rideProfileName = SFX ? createRide(SFX.chirp1, 0.35) : () => {};

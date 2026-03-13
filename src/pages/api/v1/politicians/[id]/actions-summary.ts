@@ -12,7 +12,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   if (!id) return jsonError('Missing politician ID', 400);
 
-  const cacheKey = `v1:actions-summary:${id}`;
+  const cacheKey = `v2:actions-summary:${id}`;
   const cached = await getCached(KV, cacheKey);
   if (cached) return jsonResponse(cached, { ttl: CACHE_TTL });
 
@@ -65,14 +65,14 @@ ${actions.slice(0, 20).map(a => `- [${a.category ?? 'other'}] ${a.title}`).join(
       [itemsResult, blurbResult] = await Promise.all([
         AI.run(AI_MODEL, {
           messages: [
-            { role: 'system', content: 'You summarise Australian parliamentary votes in plain English for a general audience. Return only valid JSON arrays.' },
+            { role: 'system', content: 'You summarise Australian parliamentary votes in plain English for a general audience. Return only valid JSON arrays. Never use phrases like "This politician" in the plain field.' },
             { role: 'user', content: itemsPrompt },
           ],
           max_tokens: 1500,
         }, { signal: controller.signal }),
         AI.run(AI_MODEL, {
           messages: [
-            { role: 'system', content: 'You write 2-sentence plain English summaries of Australian politicians for a general audience. Be factual and concise.' },
+            { role: 'system', content: 'You write 2-sentence plain English summaries of Australian politicians for a general audience. Be factual and concise. Never start with the politician\'s name or "This politician". Start with what they are known for or what they have done.' },
             { role: 'user', content: blurbPrompt },
           ],
           max_tokens: 150,

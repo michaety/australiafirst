@@ -141,13 +141,12 @@ const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Austral
 
       /* Card info */
       .card-info {
-        padding: 0.45rem 0.55rem; transition: transform 0.15s;
-        display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.4rem;
+        padding: 0.4rem 0.5rem 0.45rem; transition: transform 0.15s;
       }
       .politician-card:hover .card-info { transform: translateY(-2px); }
 
-      .politician-name { font-size: 0.78rem; font-weight: 700; color: #e8e8e8; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.2; }
-      .card-meta { font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+      .politician-name { font-size: 0.72rem; font-weight: 700; color: #d8d8d8; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.2; margin-bottom: 0.18rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .card-meta { font-size: 0.58rem; color: #484848; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
       .empty-state { text-align: center; padding: 4rem; color: #444; grid-column: 1/-1; }
       .loading-state { text-align: center; padding: 4rem; color: #444; }
@@ -224,7 +223,7 @@ const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Austral
     <footer>All data sourced from public records. APH · AEC · Hansard · OpenAustralia</footer>
 
     <script>
-      import { playBeep, playSwipe, playAlert, playError } from '../scripts/sounds';
+      import { playBeep, playSwipe, playError } from '../scripts/sounds';
 
       let allPoliticians: any[] = [];
       let currentFilters = { chamber: '', party: '', risk: '', q: '', sort: 'name' };
@@ -265,7 +264,7 @@ const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Austral
           const data = await res.json();
           allPoliticians = data.politicians || [];
           applyFilters();
-          playAlert();
+          playError();
         } catch {
           document.getElementById('politician-grid')!.innerHTML = '<div class="empty-state">Failed to load data.</div>';
           playError();
@@ -333,14 +332,12 @@ const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Austral
                       ? `<img src="${p.photoUrl}" alt="${p.name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
                       : ''}
                     <div class="photo-placeholder" ${p.photoUrl ? 'style="display:none"' : ''}>${initials}</div>
-                    <div class="photo-overlay">
-                      <span class="chamber-badge ${chamberClass}">${chamberLabel}</span>
-                    </div>
+                    <div class="photo-overlay"></div>
                     ${riskHtml}
                   </div>
                   <div class="card-info">
                     <div class="politician-name">${p.name}</div>
-                    <div class="card-meta">${[p.party, p.electorate].filter(Boolean).join(' · ')}</div>
+                    <div class="card-meta">${[chamberLabel, p.electorate].filter(Boolean).join(' · ')}</div>
                   </div>
                 </a>`;
             }).join('');

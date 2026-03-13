@@ -568,6 +568,8 @@ const { id } = Astro.params;
                 + '<div style="background:#0a0a0a;border-top:1px solid #1e1e1e;padding:8px;text-align:center;">'
                   + '<div style="color:#c8001a;font-size:10px;letter-spacing:2px;margin-bottom:3px;">DAYS IN OFFICE</div>'
                   + '<div id="days-in-office-val" style="color:#666;font-size:11px;">—</div>'
+                  + '<div style="color:#555;font-size:9px;letter-spacing:2px;margin-top:8px;margin-bottom:2px;">NEXT ELECTION</div>'
+                  + '<div id="days-until-election-val" style="color:#444;font-size:11px;">—</div>'
                 + '</div>'
               + '</div>'
               + '<div style="flex:1;padding:20px;border-left:1px solid #1a1a1a;display:flex;flex-direction:column;gap:12px;">'
@@ -582,17 +584,25 @@ const { id } = Astro.params;
                   + '<div><div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:3px;">STATUS</div><div style="color:#c8001a;font-weight:900;letter-spacing:2px;font-size:12px;">IN POWER</div></div>'
                 + '</div>'
                 + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">'
-                  + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + actions.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">ACTIONS</div></div>'
-                  + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + (donations.length || partyDonations.length) + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">DONORS</div></div>'
-                  + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + brokenCount + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">BROKEN PROMISES</div></div>'
-                  + '<div style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + foreignTies.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">FOREIGN LINKS</div></div>'
+                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + actions.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">ACTIONS</div></div>'
+                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + (donations.length || partyDonations.length) + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">DONORS</div></div>'
+                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + brokenCount + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">BROKEN PROMISES</div></div>'
+                  + '<div class="stat-box" style="background:#111;border:1px solid #1e1e1e;border-radius:2px;padding:4px 10px;text-align:center;"><div style="color:#c8001a;font-size:16px;font-weight:900;">' + foreignTies.length + '</div><div style="color:#444;font-size:8px;letter-spacing:1px;">FOREIGN LINKS</div></div>'
+                + '</div>'
+                + '<div style="margin-top:16px;">'
+                  + '<div style="color:#333;font-size:9px;letter-spacing:3px;margin-bottom:6px;">POLITICAL SPECTRUM</div>'
+                  + '<div style="display:flex;justify-content:space-between;color:#2a2a2a;font-size:8px;letter-spacing:1px;margin-bottom:3px;"><span>LEFT</span><span>CENTRE</span><span>RIGHT</span></div>'
+                  + '<div style="position:relative;height:4px;background:linear-gradient(to right,#224499 0%,#444 50%,#991122 100%);border-radius:2px;">'
+                    + '<div id="spectrum-marker" style="position:absolute;top:-6px;width:12px;height:12px;background:#1a1a1a;border:2px solid #c8001a;border-radius:50%;transform:translateX(-50%);left:50%;transition:left 0.4s;"></div>'
+                  + '</div>'
+                  + '<div id="spectrum-label" style="color:#444;font-size:9px;letter-spacing:2px;text-align:center;margin-top:5px;"></div>'
                 + '</div>'
               + '</div>'
             + '</div>'
             + '<div style="display:flex;border-bottom:1px solid #1a1a1a;background:#080808;">'
               + '<button id="tab-btn-actions" style="' + tabBtnBase + 'background:#111;border-bottom-color:#c8001a;color:#f0f0f0;">ACTIONS</button>'
               + '<button id="tab-btn-donors" style="' + tabBtnBase + 'background:transparent;color:#444;">FOLLOW THE MONEY</button>'
-              + '<button id="tab-btn-promises" style="' + tabBtnBase + 'background:transparent;color:#444;">THEY PROMISED</button>'
+              + '<button id="tab-btn-promises" style="' + tabBtnBase + 'background:transparent;color:#444;">PROMISES</button>'
               + '<button id="tab-btn-foreign" style="' + tabBtnBase + 'background:transparent;color:#444;">FOREIGN TIES</button>'
               + '<button id="tab-btn-policy" style="' + tabBtnBase + 'background:transparent;color:#444;">POLICY</button>'
             + '</div>'
@@ -604,7 +614,7 @@ const { id } = Astro.params;
               + donationsHtml
             + '</div>'
             + '<div id="panel-promises" style="display:none;padding:16px;min-height:200px;">'
-              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">WHAT THEY SAID VS WHAT THEY DID</div>'
+              + '<div style="color:#444;font-size:9px;letter-spacing:2px;margin-bottom:8px;">CAMPAIGN PROMISES & DELIVERY STATUS</div>'
               + promisesHtml
             + '</div>'
             + '<div id="panel-foreign" style="display:none;padding:16px;min-height:200px;">'
@@ -633,16 +643,43 @@ const { id } = Astro.params;
           var daysEl = document.getElementById('days-in-office-val');
           if (daysEl) {
             var daysText;
-            if (p.termStart) {
-              var start = new Date(p.termStart);
-              var now = new Date();
-              var days = Math.floor((now.getTime() - start.getTime()) / 86400000);
-              daysText = days.toLocaleString() + ' days';
-            } else {
-              daysText = p.jurisdiction || 'Unknown';
-            }
+            var termDate = p.termStart || '2025-05-03'; // fallback: 2025 federal election
+            var start = new Date(termDate);
+            var now = new Date();
+            var days = Math.floor((now.getTime() - start.getTime()) / 86400000);
+            daysText = days.toLocaleString() + ' days';
             typeInto(daysEl, daysText, 60, daysSoundFn);
           }
+
+          var electionEl = document.getElementById('days-until-election-val');
+          if (electionEl) {
+            var nextElection = new Date('2028-05-03');
+            var nowEl = new Date();
+            var daysUntil = Math.ceil((nextElection.getTime() - nowEl.getTime()) / 86400000);
+            typeInto(electionEl, daysUntil.toLocaleString() + ' days', 50, daysSoundFn);
+          }
+
+          // Political spectrum slider
+          (function() {
+            var partyStr = ((p.party || '') + ' ' + (p.partyName || '')).toLowerCase();
+            var score = 0;
+            if (partyStr.includes('green')) score = -75;
+            else if (partyStr.includes('labor') || partyStr.includes('labour')) score = -35;
+            else if (partyStr.includes('centre alliance') || partyStr.includes('sa-best')) score = -10;
+            else if (partyStr.includes('national') && !partyStr.includes('liberal national')) score = 35;
+            else if (partyStr.includes('liberal national') || partyStr.includes('lnp')) score = 55;
+            else if (partyStr.includes('liberal')) score = 55;
+            else if (partyStr.includes('one nation') || partyStr.includes('phon')) score = 75;
+            else if (partyStr.includes('united australia') || partyStr.includes('uap')) score = 65;
+            else if (partyStr.includes('katter') || partyStr.includes('kap')) score = 45;
+            var pct = ((score + 100) / 2);
+            var marker = document.getElementById('spectrum-marker');
+            if (marker) marker.style.left = pct + '%';
+            var label = document.getElementById('spectrum-label');
+            if (label) {
+              label.textContent = score <= -60 ? 'FAR LEFT' : score <= -25 ? 'LEFT' : score <= -5 ? 'CENTRE-LEFT' : score <= 5 ? 'CENTRE' : score <= 30 ? 'CENTRE-RIGHT' : score <= 60 ? 'RIGHT' : 'FAR RIGHT';
+            }
+          })();
 
           // Load AI summary for the default (actions) tab immediately
           aiLoaded['actions'] = true;

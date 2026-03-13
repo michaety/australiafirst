@@ -29,6 +29,8 @@ export async function runRosterETL(env: Env) {
     constituency?: string;
     house?: string;
     image?: string;
+    entered_house?: string;
+    entered_senate?: string;
     _chamber: 'senate' | 'representatives';
   };
 
@@ -56,6 +58,8 @@ export async function runRosterETL(env: Env) {
     const partyName = member.party ?? null;
     const electorate = member.constituency ?? null;
     const imageUrl = member.image ?? null;
+    const enteredDate = member.entered_house ?? member.entered_senate ?? null;
+    const datesJson = enteredDate ? JSON.stringify({ entered: enteredDate }) : null;
 
     let partyId: string | null = null;
     if (partyName) {
@@ -67,15 +71,16 @@ export async function runRosterETL(env: Env) {
     }
 
     await DB.prepare(`
-      INSERT INTO politicians (id, name, chamber, party_id, electorate, jurisdiction, image_url)
-      VALUES (?, ?, ?, ?, ?, 'commonwealth', ?)
+      INSERT INTO politicians (id, name, chamber, party_id, electorate, jurisdiction, image_url, dates)
+      VALUES (?, ?, ?, ?, ?, 'commonwealth', ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         chamber = excluded.chamber,
         party_id = excluded.party_id,
         electorate = excluded.electorate,
-        image_url = excluded.image_url
-    `).bind(id, name, chamber, partyId, electorate, imageUrl).run();
+        image_url = excluded.image_url,
+        dates = COALESCE(excluded.dates, politicians.dates)
+    `).bind(id, name, chamber, partyId, electorate, imageUrl, datesJson).run();
 
     const photoId = `photo_${id}`;
     await DB.prepare(`

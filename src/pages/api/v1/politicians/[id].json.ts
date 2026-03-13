@@ -27,6 +27,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
           partyId: politician.party_id ?? null,
           electorate: politician.electorate,
           jurisdiction: politician.jurisdiction,
+          termStart: (() => {
+            try { return politician.dates ? (JSON.parse(politician.dates) as Record<string, string>).entered ?? null : null; }
+            catch { return null; }
+          })(),
           photoUrl: politician.photo_url,
           hasMugshot: !!politician.mugshot_r2_key,
           bio: politician.bio,

@@ -8,6 +8,7 @@ export interface Politician {
   party_abbreviation: string | null;
   electorate: string | null;
   jurisdiction: string;
+  dates: string | null;
   photo_url: string | null;
   mugshot_r2_key: string | null;
   bio: string | null;
@@ -142,7 +143,7 @@ export async function getPoliticians(
 export async function getPoliticianById(db: D1Database, id: string): Promise<Politician | null> {
   const result = await db.prepare(`
     SELECT p.id, p.name, p.chamber, p.party_id, p.electorate, p.jurisdiction,
-           p.photo_url, p.mugshot_r2_key, p.bio, p.website, p.social_media,
+           p.dates, p.photo_url, p.mugshot_r2_key, p.bio, p.website, p.social_media,
            pt.name AS party_name,
            COALESCE(
              pt.abbreviation,
