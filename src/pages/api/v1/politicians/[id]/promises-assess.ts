@@ -51,6 +51,9 @@ export const POST: APIRoute = async ({ params, locals }) => {
       results.push({ id: promise.id, title: promise.title, oldStatus: promise.status, newStatus });
     }
 
+    // Bust the politician profile cache so updated statuses show immediately
+    await KV.delete(`v1:politician:${id}`);
+
     return jsonResponse({ assessed: results.length, results });
   } catch (err) {
     console.error(`POST /api/v1/politicians/${id}/promises-assess error:`, err);

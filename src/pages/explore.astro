@@ -9,7 +9,7 @@ const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Austral
 <html lang="en">
   <head>
     <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-    <style>
+    <style is:global>
       body { background: #0a0a0a; color: #e8e8e8; font-family: 'Courier New', monospace; margin: 0; }
 
       /* ── Header ── */
@@ -130,14 +130,6 @@ const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Austral
         50%       { box-shadow: 0 0 14px rgba(255,32,32,1), 0 0 28px rgba(255,32,32,0.4); }
       }
 
-      /* Risk badge tooltip */
-      .risk-tooltip {
-        display: none; position: absolute; top: calc(100% + 6px); right: 0;
-        background: #0a0a0a; border: 1px solid #cc0000; color: #aaa;
-        font-family: 'Courier New', monospace; font-size: 0.65rem; white-space: nowrap;
-        padding: 5px 9px; z-index: 200; pointer-events: none; text-align: left;
-      }
-      .risk-badge-wrap:hover .risk-tooltip { display: block; }
 
       /* Card info */
       .card-info {
@@ -322,7 +314,6 @@ const SITE_DESCRIPTION = 'Browse the accountability register for all 228 Austral
               const riskHtml = p.riskScore > 0 ? `
                 <div class="risk-badge-wrap">
                   <span class="risk-badge ${rl}">${rl.toUpperCase()}</span>
-                  <div class="risk-tooltip">Risk Score: ${p.riskScore}/100</div>
                 </div>` : '';
 
               return `

@@ -122,6 +122,40 @@ if (!checkAuth()) {
       </div>
       <div class="status-msg" id="etl-status">Ready</div>
 
+      <h2>Promise Management</h2>
+      <div class="form-section">
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Politician ID *</label>
+            <input type="text" id="promise-mgmt-politician-id" placeholder="e.g. aph_10001" />
+          </div>
+          <div class="form-row">
+            <label>Promise ID (for manual update)</label>
+            <input type="text" id="promise-mgmt-promise-id" placeholder="e.g. promise_..." />
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>New Status (manual update)</label>
+            <select id="promise-mgmt-status">
+              <option value="pending">Pending</option>
+              <option value="kept">Kept</option>
+              <option value="broken">Broken</option>
+              <option value="partial">Partial</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Evidence URL (optional)</label>
+            <input type="url" id="promise-mgmt-evidence" />
+          </div>
+        </div>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
+          <button class="btn btn-primary" onclick="assessPromises()">Run AI Assessment</button>
+          <button class="btn" onclick="updatePromiseStatus()">Update Promise Status</button>
+        </div>
+        <div class="status-msg" id="promise-mgmt-status">Ready</div>
+      </div>
+
       <h2>Add Record</h2>
       <div class="form-section">
         <div class="form-row">
@@ -322,6 +356,52 @@ if (!checkAuth()) {
           statusEl.className = 'status-msg success';
           statusEl.textContent = `Success! ID: ${data.id}`;
           loadStats();
+        } catch (e) {
+          statusEl.className = 'status-msg error';
+          statusEl.textContent = `Error: ${e.message}`;
+        }
+      }
+
+      async function assessPromises() {
+        const politicianId = document.getElementById('promise-mgmt-politician-id').value.trim();
+        const statusEl = document.getElementById('promise-mgmt-status');
+        if (!politicianId) { statusEl.className = 'status-msg error'; statusEl.textContent = 'Politician ID required'; return; }
+        statusEl.className = 'status-msg';
+        statusEl.textContent = 'Running AI assessment...';
+        try {
+          const res = await fetch(`/api/v1/politicians/${politicianId}/promises-assess`, { method: 'POST' });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || res.statusText);
+          statusEl.className = 'status-msg success';
+          statusEl.textContent = `Assessed ${data.assessed} promise(s). Results: ${JSON.stringify(data.results?.map(r => `${r.title.slice(0,30)}: ${r.oldStatus}→${r.newStatus}`))}`;
+        } catch (e) {
+          statusEl.className = 'status-msg error';
+          statusEl.textContent = `Error: ${e.message}`;
+        }
+      }
+
+      async function updatePromiseStatus() {
+        const politicianId = document.getElementById('promise-mgmt-politician-id').value.trim();
+        const promiseId = document.getElementById('promise-mgmt-promise-id').value.trim();
+        const status = document.getElementById('promise-mgmt-status').value;
+        const evidenceUrl = document.getElementById('promise-mgmt-evidence').value.trim();
+        const statusEl = document.getElementById('promise-mgmt-status');
+        if (!politicianId) { statusEl.className = 'status-msg error'; statusEl.textContent = 'Politician ID required'; return; }
+        if (!promiseId) { statusEl.className = 'status-msg error'; statusEl.textContent = 'Promise ID required'; return; }
+        statusEl.className = 'status-msg';
+        statusEl.textContent = 'Updating...';
+        try {
+          const body = { promise_id: promiseId, status };
+          if (evidenceUrl) body.evidence_url = evidenceUrl;
+          const res = await fetch(`/api/admin/politicians/${politicianId}/promises`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || res.statusText);
+          statusEl.className = 'status-msg success';
+          statusEl.textContent = `Promise ${promiseId} updated to "${status}"`;
         } catch (e) {
           statusEl.className = 'status-msg error';
           statusEl.textContent = `Error: ${e.message}`;
