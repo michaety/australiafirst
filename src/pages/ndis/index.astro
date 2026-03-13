@@ -177,7 +177,7 @@ const SITE_DESCRIPTION = 'Every banned NDIS provider. Every compliance action. E
     <div class="status-line">NDIS.ONTHERECORD.FYI &mdash; NDIS PROVIDER RED FLAG REGISTER</div>
 
     <script>
-      import { playBeep, playTypeTick, playAccessGranted, unlockAudio } from '../../scripts/sounds';
+      import { playTypeTick, playAccessGranted, unlockAudio } from '../../scripts/sounds';
 
       const _unlock = () => { unlockAudio(); ['click','touchstart','keydown'].forEach(e => document.removeEventListener(e, _unlock)); };
       ['click','touchstart','keydown'].forEach(e => document.addEventListener(e, _unlock, { passive: true }));
@@ -261,7 +261,7 @@ const SITE_DESCRIPTION = 'Every banned NDIS provider. Every compliance action. E
       }
 
       document.getElementById('enter-btn')!.addEventListener('click', () => {
-        playBeep();
+        playAccessGranted();
         setTimeout(() => { window.location.href = '/ndis/explore'; }, 130);
       });
     </script>
