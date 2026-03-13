@@ -63,56 +63,60 @@ No other text outside the JSON object.`;
   }
 }
 
+export async function runPromisesAssessETL(env: Env) {
+  const db = env.DB;
+
+  const { results: pending } = await db.prepare(
+    `SELECT id, title, description, status FROM promises WHERE status = 'pending' OR status IS NULL`,
+  ).all<PromiseRow>();
+
+  let assessed = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+    const batch = pending.slice(i, i + BATCH_SIZE);
+
+    const results = await Promise.all(
+      batch.map(async (promise) => {
+        try {
+          const result = await assessPromise(env, promise);
+          return { promise, result, ok: true as const };
+        } catch (err) {
+          console.error(`Failed to assess promise ${promise.id}:`, err);
+          return { promise, ok: false as const };
+        }
+      }),
+    );
+
+    const stmts = [];
+    for (const r of results) {
+      if (r.ok) {
+        stmts.push(
+          db.prepare(`UPDATE promises SET status = ?, notes = ? WHERE id = ?`)
+            .bind(r.result.status, r.result.notes, r.promise.id),
+        );
+        assessed++;
+      } else {
+        errors++;
+      }
+    }
+
+    if (stmts.length > 0) {
+      await db.batch(stmts);
+    }
+  }
+
+  return { assessed, skipped, errors };
+}
+
 export const POST: APIRoute = async ({ request, locals }) => {
   const authErr = requireInternalSecret(request, locals.runtime.env);
   if (authErr) return authErr;
 
-  const env = locals.runtime.env;
-  const db = env.DB;
-
   try {
-    const { results: pending } = await db.prepare(
-      `SELECT id, title, description, status FROM promises WHERE status = 'pending' OR status IS NULL`,
-    ).all<PromiseRow>();
-
-    let assessed = 0;
-    let skipped = 0;
-    let errors = 0;
-
-    for (let i = 0; i < pending.length; i += BATCH_SIZE) {
-      const batch = pending.slice(i, i + BATCH_SIZE);
-
-      const results = await Promise.all(
-        batch.map(async (promise) => {
-          try {
-            const result = await assessPromise(env, promise);
-            return { promise, result, ok: true as const };
-          } catch (err) {
-            console.error(`Failed to assess promise ${promise.id}:`, err);
-            return { promise, ok: false as const };
-          }
-        }),
-      );
-
-      const stmts = [];
-      for (const r of results) {
-        if (r.ok) {
-          stmts.push(
-            db.prepare(`UPDATE promises SET status = ?, notes = ? WHERE id = ?`)
-              .bind(r.result.status, r.result.notes, r.promise.id),
-          );
-          assessed++;
-        } else {
-          errors++;
-        }
-      }
-
-      if (stmts.length > 0) {
-        await db.batch(stmts);
-      }
-    }
-
-    return jsonResponse({ assessed, skipped, errors });
+    const result = await runPromisesAssessETL(locals.runtime.env);
+    return jsonResponse(result);
   } catch (err) {
     console.error('Promises assess ETL error:', err);
     return jsonError(`Promises assess ETL failed: ${err instanceof Error ? err.message : String(err)}`);
