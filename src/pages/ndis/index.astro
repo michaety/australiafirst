@@ -1,8 +1,6 @@
-export const prerender = false;
 ---
-import BaseHead from '../../components/BaseHead.astro';
-
 export const prerender = false;
+import BaseHead from '../../components/BaseHead.astro';
 
 const SITE_TITLE = 'NDIS On The Record | Provider Red Flag Register';
 const SITE_DESCRIPTION = 'Every banned NDIS provider. Every compliance action. Every banning order. All public data from the NDIS Quality and Safeguards Commission.';
@@ -11,7 +9,7 @@ const SITE_DESCRIPTION = 'Every banned NDIS provider. Every compliance action. E
 <html lang="en">
   <head>
     <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-    <style>
+    <style is:global>
       *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
       body {
