@@ -612,7 +612,7 @@ const { id } = Astro.params;
             + '</div>'
             + '<div style="display:flex;border-bottom:1px solid #1a1a1a;background:#080808;">'
               + '<button id="tab-btn-actions" style="' + tabBtnBase + 'background:#111;border-bottom-color:#c8001a;color:#f0f0f0;">ACTIONS</button>'
-              + '<button id="tab-btn-donors" style="' + tabBtnBase + 'background:transparent;color:#444;">FOLLOW THE MONEY</button>'
+              + '<button id="tab-btn-donors" style="' + tabBtnBase + 'background:transparent;color:#444;">DONATIONS</button>'
               + '<button id="tab-btn-promises" style="' + tabBtnBase + 'background:transparent;color:#444;">PROMISES</button>'
               + '<button id="tab-btn-foreign" style="' + tabBtnBase + 'background:transparent;color:#444;">FOREIGN TIES</button>'
               + '<button id="tab-btn-policy" style="' + tabBtnBase + 'background:transparent;color:#444;">POLICY</button>'
@@ -705,5 +705,9 @@ const { id } = Astro.params;
 
       loadProfile();
     </script>
+    <div style="border-top:1px solid #111;padding:12px 24px;text-align:center;color:#2a2a2a;font-size:9px;letter-spacing:1px;font-family:'Courier New',monospace;line-height:1.6;">
+      ALL DATA SOURCED FROM PUBLIC RECORDS — APH · AEC · HANSARD · OPENAUSTRALIA<br>
+      PROMISE ASSESSMENTS ARE AI-ASSISTED AND BASED ON PUBLICLY AVAILABLE SOURCES. THIS SITE PUBLISHES INFORMATION IN THE PUBLIC INTEREST. DATA MAY CONTAIN ERRORS — <a href="mailto:contact@ontherecord.fyi" style="color:#2a2a2a;">CONTACT US</a> IF YOU BELIEVE SOMETHING IS INACCURATE.
+    </div>
   </body>
 </html>
