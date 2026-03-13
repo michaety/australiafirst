@@ -19,6 +19,17 @@ const { id } = Astro.params;
         cursor: pointer; transition: all 0.12s;
       }
       .back-btn:hover { border-color: #cc0000; color: #cc0000; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* ── Mobile layout ── */
+      @media (max-width: 600px) {
+        #page-wrap { padding: 16px 10px !important; gap: 16px !important; }
+        #page-wrap > div:first-child { display: none; }
+        #tab-btn-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        #tab-btn-bar::-webkit-scrollbar { display: none; }
+        #tab-btn-bar button { flex: 0 0 auto !important; min-width: 100px; padding: 12px 10px !important; font-size: 8px !important; }
+        #profile-card { font-size: 14px; }
+      }
     </style>
   </head>
   <body style="margin:0;padding:0;background:#050505;color:#e8e8e8;font-family:'Courier New',monospace;">
@@ -209,7 +220,7 @@ const { id } = Astro.params;
                 + '</div>'
               + '</div>'
             + '</div>'
-            + '<div style="display:flex;border-bottom:1px solid #1a1a1a;background:#080808;">'
+            + '<div id="tab-btn-bar" style="display:flex;border-bottom:1px solid #1a1a1a;background:#080808;">'
               + '<button id="tab-btn-actions" style="' + tabBtnBase + 'background:#111;border-bottom-color:#c8001a;color:#f0f0f0;">COMPLIANCE ACTIONS</button>'
               + '<button id="tab-btn-abn" style="' + tabBtnBase + 'background:transparent;color:#444;">ABN DETAILS</button>'
             + '</div>'
