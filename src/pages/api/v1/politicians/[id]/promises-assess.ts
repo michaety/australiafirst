@@ -39,7 +39,8 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
         const word = (result?.response ?? '').trim().toUpperCase().replace(/[^A-Z]/g, '');
         newStatus = VALID_STATUSES.has(word) ? word : 'PENDING';
-        await setCached(KV, cacheKey, newStatus, CACHE_TTL);
+        // Only cache definitive results — don't cache PENDING so it always retries
+        if (newStatus !== 'PENDING') await setCached(KV, cacheKey, newStatus, CACHE_TTL);
       }
 
       if (newStatus !== promise.status.toUpperCase()) {

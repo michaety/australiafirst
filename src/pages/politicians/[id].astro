@@ -485,6 +485,17 @@ const { id } = Astro.params;
           }
           var data = await res.json();
           var policyData = policyRes.ok ? await policyRes.json() : { policyScores: [] };
+
+          // Auto-assess promises if any are pending
+          var hasPending = (data.promises || []).some(function(pr) { return pr.status === 'pending'; });
+          if (hasPending) {
+            try {
+              await fetch('/api/v1/politicians/' + politicianId + '/promises-assess', { method: 'POST' });
+              var refreshed = await fetch('/api/v1/politicians/' + politicianId + '.json');
+              if (refreshed.ok) data = await refreshed.json();
+            } catch (e) { /* assessment failed, continue with pending statuses */ }
+          }
+
           var p = data.politician;
           var actions = data.actions || [];
           var donations = data.donations || [];
