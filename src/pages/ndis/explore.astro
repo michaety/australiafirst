@@ -273,7 +273,7 @@ const SITE_DESCRIPTION = 'Browse compliance actions, banning orders, and enforce
 
         if (risk)   list = list.filter(p => (p.risk_label || 'unknown').toLowerCase() === risk);
         if (state)  list = list.filter(p => (p.state || '').toUpperCase() === state);
-        if (action) list = list.filter(p => p._latestAction === action);  // enriched below
+        if (action) list = list.filter(p => p.latest_action_type === action);
         if (q) {
           const lq = q.toLowerCase();
           list = list.filter(p =>

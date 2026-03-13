@@ -695,11 +695,11 @@ const { id } = Astro.params;
             promisesHtml = '<div style="color:#333;font-size:12px;text-align:center;padding:40px 0;">Promise tracking is manually curated. No promises have been recorded for this politician yet.</div>';
           } else {
             promisesHtml = '<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">'
-              + '<button onclick="filterPromises(\'all\')" id="pf-all" style="' + filterBtnBase + 'border-color:#555;color:#ccc;">ALL (' + promises.length + ')</button>'
-              + '<button onclick="filterPromises(\'broken\')" id="pf-broken" style="' + filterBtnBase + 'border-color:#c8001a;color:#c8001a;">✗ BROKEN (' + brokenCount + ')</button>'
-              + (partialCount ? '<button onclick="filterPromises(\'partial\')" id="pf-partial" style="' + filterBtnBase + 'border-color:#ff8c00;color:#ff8c00;">~ PARTIAL (' + partialCount + ')</button>' : '')
-              + (pendingCount ? '<button onclick="filterPromises(\'pending\')" id="pf-pending" style="' + filterBtnBase + '">? PENDING (' + pendingCount + ')</button>' : '')
-              + (keptCount ? '<button onclick="filterPromises(\'kept\')" id="pf-kept" style="' + filterBtnBase + 'border-color:#2bff6e;color:#2bff6e;">✓ KEPT (' + keptCount + ')</button>' : '')
+              + '<button id="pf-all" style="' + filterBtnBase + 'border-color:#555;color:#ccc;">ALL (' + promises.length + ')</button>'
+              + '<button id="pf-broken" style="' + filterBtnBase + 'border-color:#c8001a;color:#c8001a;">✗ BROKEN (' + brokenCount + ')</button>'
+              + (partialCount ? '<button id="pf-partial" style="' + filterBtnBase + 'border-color:#ff8c00;color:#ff8c00;">~ PARTIAL (' + partialCount + ')</button>' : '')
+              + (pendingCount ? '<button id="pf-pending" style="' + filterBtnBase + '">? PENDING (' + pendingCount + ')</button>' : '')
+              + (keptCount ? '<button id="pf-kept" style="' + filterBtnBase + 'border-color:#2bff6e;color:#2bff6e;">✓ KEPT (' + keptCount + ')</button>' : '')
               + '</div>'
               + '<div id="promises-list">'
               + sortedPromises.map(buildPromiseCard).join('')
@@ -755,6 +755,12 @@ const { id } = Astro.params;
           tabNames.forEach(function(t) {
             var btn = document.getElementById('tab-btn-' + t);
             if (btn) btn.addEventListener('click', function() { switchTab(t); });
+          });
+
+          // Wire up promise filter buttons (now in DOM after innerHTML set above)
+          ['all', 'broken', 'partial', 'pending', 'kept'].forEach(function(s) {
+            var btn = document.getElementById('pf-' + s);
+            if (btn) btn.addEventListener('click', function() { filterPromises(s); });
           });
 
           // Load AI summary for the default (actions) tab

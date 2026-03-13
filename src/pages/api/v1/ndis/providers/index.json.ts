@@ -39,7 +39,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         p.id, p.abn, p.legal_name, p.trading_name, p.suburb, p.state,
         p.reg_status, p.abn_status, p.entity_type,
         p.risk_score, p.risk_label, p.action_count,
-        p.abn_reg_date, p.updated_at
+        p.abn_reg_date, p.updated_at,
+        (SELECT action_type FROM ndis_compliance_actions WHERE provider_id = p.id ORDER BY start_date DESC LIMIT 1) as latest_action_type
       FROM ndis_providers p
       ${where}
       ORDER BY p.risk_score DESC, p.action_count DESC
